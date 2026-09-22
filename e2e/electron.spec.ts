@@ -42,6 +42,14 @@ test('real Electron IPC starts Python and preserves a failed run report', async 
   try {
     const page = await application.firstWindow()
     await expect.poll(() => page.evaluate(() => typeof window.evaluation)).toBe('object')
+    await expect.poll(() => page.evaluate(() => typeof window.diagnostics)).toBe('object')
+    expect(await page.evaluate(() => window.diagnostics.getSnapshot())).toMatchObject({
+      ok: true,
+      value: { status: 'idle' }
+    })
+    expect(
+      (await page.evaluate(() => window.diagnostics.inspect('/unknown/report.json', 'a', false))).ok
+    ).toBe(false)
     expect(
       await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require)
     ).toBe('undefined')
@@ -68,6 +76,15 @@ test('real Electron IPC starts Python and preserves a failed run report', async 
     const saved = JSON.parse(await readFile(reportPath!, 'utf8'))
     expect(saved.status).toBe('failed')
     expect(saved.processedSamples).toBe(0)
+    expect(
+      (
+        await page.evaluate(
+          (path) => window.diagnostics.inspect(path, 'unprocessed-sample', false),
+          reportPath!
+        )
+      ).ok
+    ).toBe(false)
+    expect(JSON.parse(await readFile(reportPath!, 'utf8'))).toEqual(saved)
     expect(await readFile(request.checkpointPath, 'utf8')).toBe(
       'invalid checkpoint; never reaches inference'
     )

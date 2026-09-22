@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -32,17 +33,59 @@ export class EvaluationRunner {
   private imagePaths = new Set<string>()
   private datasetRoot: string | null = null
   private outputRoot: string | null = null
+  private pythonExecutable: string | null = null
+  private reportSha256: string | null = null
 
   constructor(
     private readonly workerPath: string,
-    private readonly publish: (snapshot: EvaluationSnapshot) => void
+    private readonly publish: (snapshot: EvaluationSnapshot) => void,
+    private readonly isDiagnosticActive: () => boolean = () => false
   ) {}
 
   getSnapshot(): EvaluationSnapshot {
-    return structuredClone(this.snapshot)
+    const snapshot = structuredClone(this.snapshot)
+    // A final report can arrive before GPU teardown and temporary-file cleanup finish.
+    if (this.busy && ['completed', 'cancelled', 'failed'].includes(snapshot.status)) {
+      snapshot.status = this.cancelRequested ? 'cancelling' : 'running'
+    }
+    return snapshot
   }
   isActive(): boolean {
     return this.busy
+  }
+
+  getDiagnosticContext(
+    reportInput: unknown,
+    sampleInput: unknown
+  ): { pythonExecutable: string; reportPath: string; reportSha256: string; sampleId: string } {
+    if (this.busy) {
+      throw new Error('평가가 끝난 뒤 샘플을 진단할 수 있습니다.')
+    }
+    const reportPath = readPath(reportInput)
+    const report = this.snapshot.report
+    const provenance =
+      report == null ? null : (report as unknown as Record<string, unknown>).reproducibility
+    if (
+      report == null ||
+      reportPath !== this.snapshot.reportPath ||
+      this.pythonExecutable == null ||
+      this.reportSha256 == null ||
+      typeof sampleInput !== 'string' ||
+      sampleInput.length === 0 ||
+      report.samples.filter((sample) => sample.id === sampleInput).length !== 1 ||
+      !isRecord(provenance) ||
+      !isRecord(provenance.settings)
+    ) {
+      throw new Error(
+        '현재 저장된 평가 보고서에 포함된 샘플과 실행 정보가 있어야 진단할 수 있습니다.'
+      )
+    }
+    return {
+      pythonExecutable: this.pythonExecutable,
+      reportPath,
+      reportSha256: this.reportSha256,
+      sampleId: sampleInput
+    }
   }
 
   private update(patch: Partial<EvaluationSnapshot>): void {
@@ -54,6 +97,9 @@ export class EvaluationRunner {
     if (this.busy) {
       throw new Error('이미 평가가 실행 중입니다.')
     }
+    if (this.isDiagnosticActive()) {
+      throw new Error('샘플 진단이 끝난 뒤 평가를 시작하세요.')
+    }
     const request = parseRequest(input)
     this.busy = true
     this.cancelRequested = false
@@ -61,6 +107,8 @@ export class EvaluationRunner {
     this.imagePaths.clear()
     this.datasetRoot = null
     this.outputRoot = null
+    this.pythonExecutable = request.pythonExecutable
+    this.reportSha256 = null
     this.snapshot = emptySnapshot()
     this.update({ status: 'starting' })
     let temporaryDirectory: string | null = null
@@ -163,13 +211,15 @@ export class EvaluationRunner {
               ) {
                 throw new Error('보고서 저장 경로가 올바르지 않습니다.')
               }
-              const saved: unknown = JSON.parse(await readFile(reportPath, 'utf8'))
+              const reportBytes = await readFile(reportPath)
+              const saved: unknown = JSON.parse(reportBytes.toString('utf8'))
               if (!isReport(saved) || JSON.stringify(saved) !== JSON.stringify(event.report)) {
                 throw new Error('저장된 보고서와 평가 응답이 일치하지 않습니다.')
               }
               for (const sample of saved.samples) {
                 await this.allowImage(sample.imagePath)
               }
+              this.reportSha256 = createHash('sha256').update(reportBytes).digest('hex')
               finished = true
               this.update({
                 status: saved.status,

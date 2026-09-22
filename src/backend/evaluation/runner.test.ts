@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -176,7 +177,7 @@ describe('evaluation process boundary', () => {
     expect(runner.isActive()).toBe(true)
     await expect(runner.start(request())).rejects.toThrow('이미 평가')
     runner.cancel()
-    expect(runner.getSnapshot().status).toBe('completed')
+    expect(runner.getSnapshot().status).toBe('running')
     rejectCleanup(new Error('fixture cleanup failure'))
     await vi.waitFor(() => expect(runner.isActive()).toBe(false))
     expect(runner.getSnapshot()).toMatchObject({
@@ -241,5 +242,99 @@ describe('evaluation process boundary', () => {
         summary: null
       })
     ).toBe(false)
+  })
+
+  it('binds diagnosis to the saved report bytes, original Python, and an evaluated sample', async () => {
+    const imagePath = join(root, 'dataset', '001.png')
+    await writeFile(imagePath, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    const runner = new EvaluationRunner(join(root, 'worker.py'), () => {})
+    const original = request()
+    await runner.start(original)
+    const reportPath = join(root, 'reports', 'report.json')
+    expect(() => runner.getDiagnosticContext(reportPath, 'roi')).toThrow('평가가 끝난 뒤')
+    const report = {
+      status: 'cancelled',
+      totalSamples: 2,
+      processedSamples: 1,
+      samples: [
+        { id: 'roi', imagePath, truth: '가', prediction: '', editDistance: 1, confidence: null }
+      ],
+      summary: null,
+      error: null,
+      startedAt: '2026-01-01T00:00:00Z',
+      finishedAt: '2026-01-01T00:00:01Z',
+      reproducibility: { settings: { runDirectory: root } }
+    }
+    const text = `${JSON.stringify(report, null, 2)}\n`
+    await writeFile(reportPath, text)
+    child.stdout.write(JSON.stringify({ type: 'finished', reportPath, report }) + '\n')
+    child.emit('close', 0, null)
+    await vi.waitFor(() => expect(runner.isActive()).toBe(false))
+    const canonical = await realpath(reportPath)
+    const context = runner.getDiagnosticContext(canonical, 'roi')
+    expect(context).toEqual({
+      pythonExecutable: original.pythonExecutable,
+      reportPath: canonical,
+      reportSha256: createHash('sha256').update(text).digest('hex'),
+      sampleId: 'roi'
+    })
+    original.pythonExecutable = join(root, 'different-python.exe')
+    expect(runner.getDiagnosticContext(canonical, 'roi')).toEqual(context)
+    expect(() => runner.getDiagnosticContext(canonical, 'unevaluated')).toThrow('현재 저장된')
+    expect(() => runner.getDiagnosticContext(join(root, 'other-report.json'), 'roi')).toThrow(
+      '현재 저장된'
+    )
+    await writeFile(reportPath, '{}')
+    // The Python diagnostic must verify this original byte hash before using the report.
+    expect(runner.getDiagnosticContext(canonical, 'roi').reportSha256).toBe(context.reportSha256)
+  })
+
+  it('blocks evaluation synchronously while a diagnostic owns the GPU', async () => {
+    const runner = new EvaluationRunner(
+      join(root, 'worker.py'),
+      () => {},
+      () => true
+    )
+    await expect(runner.start(request())).rejects.toThrow('샘플 진단')
+    expect(runner.isActive()).toBe(false)
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('publishes completion only after the child exits and the GPU lock is released', async () => {
+    const publish = vi.fn()
+    const runner = new EvaluationRunner(join(root, 'worker.py'), publish)
+    await runner.start(request())
+    const imagePath = join(root, 'dataset', '001.png')
+    await writeFile(imagePath, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    const report = {
+      status: 'completed',
+      totalSamples: 1,
+      processedSamples: 1,
+      samples: [
+        { id: 'roi', imagePath, truth: '가', prediction: '가', editDistance: 0, confidence: null }
+      ],
+      summary: { cer: 0, exactMatch: 1, sampleCount: 1, characterCount: 1 },
+      error: null,
+      startedAt: '2026-01-01T00:00:00Z',
+      finishedAt: '2026-01-01T00:00:01Z',
+      reproducibility: { settings: { runDirectory: root } }
+    }
+    const reportPath = join(root, 'reports', 'report.json')
+    await writeFile(reportPath, JSON.stringify(report))
+    child.stdout.write(JSON.stringify({ type: 'finished', reportPath, report }) + '\n')
+    await vi.waitFor(() => expect(runner.getSnapshot().report).toEqual(report))
+    expect(runner.isActive()).toBe(true)
+    expect(runner.getSnapshot().status).toBe('running')
+    expect(publish).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
+    expect(() => runner.getDiagnosticContext(reportPath, 'roi')).toThrow('평가가 끝난 뒤')
+    child.emit('close', 0, null)
+    await vi.waitFor(() => expect(runner.isActive()).toBe(false))
+    expect(publish).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'completed', report })
+    )
+    expect(runner.getDiagnosticContext(await realpath(reportPath), 'roi')).toHaveProperty(
+      'sampleId',
+      'roi'
+    )
   })
 })

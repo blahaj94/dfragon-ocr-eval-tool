@@ -1269,6 +1269,164 @@ footer span {
   overflow-wrap: anywhere;
   line-height: 1.7;
 }
+.sample-diagnostics {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.diagnostic-source-note,
+.diagnostic-shape-note,
+.diagnostic-detail-action > span {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.diagnostic-operation,
+.diagnostic-workspace-status {
+  border: 1px solid #cbded4;
+  border-radius: 5px;
+  padding: 12px 16px;
+  color: var(--accent);
+  background: #edf5ef;
+  font-size: 12px;
+}
+.diagnostic-workspace-status {
+  margin: 0;
+}
+.diagnostic-policy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  margin: 20px 0 14px;
+}
+.diagnostic-stage-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.diagnostic-stage {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  min-width: 0;
+}
+.diagnostic-stage h4,
+.diagnostic-shapes h4 {
+  font-size: 14px;
+  margin: 0 0 9px;
+}
+.diagnostic-stage > p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.diagnostic-preview-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100px;
+  padding: 16px;
+  border: 1px solid #dbe4d4;
+  border-radius: 5px;
+  background: #edf1e9;
+}
+.diagnostic-preview-button:hover {
+  border-color: #83a692;
+}
+.diagnostic-preview-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-height: 190px;
+}
+.diagnostic-preview-frame.preview-enlarged {
+  max-height: none;
+}
+.diagnostic-preview-frame > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.diagnostic-content-bounds {
+  position: absolute;
+  border: 2px dashed #ed9f16;
+  outline: 1px solid #253225;
+  pointer-events: none;
+}
+.diagnostic-preview-note,
+.diagnostic-bound-note {
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.diagnostic-stage dl {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+.diagnostic-stage dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.diagnostic-stage dt {
+  color: var(--muted);
+}
+.diagnostic-stage dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.diagnostic-detail-action {
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.diagnostic-shapes {
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+}
+.diagnostic-shape-status,
+.diagnostic-shape-unknown {
+  font-size: 12px;
+  padding: 12px;
+  border-radius: 5px;
+  background: #eef4ec;
+}
+.diagnostic-shape-unknown {
+  background: #faf3e6;
+  color: #92734b;
+}
+.diagnostic-shape-table th,
+.diagnostic-shape-table td {
+  width: auto;
+  padding: 12px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.diagnostic-shape-table th:first-child {
+  width: 18%;
+}
+.diagnostic-shape-table th:nth-child(2),
+.diagnostic-shape-table th:nth-child(3) {
+  width: 23%;
+}
+.diagnostic-shape-table td > small {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.6;
+  color: #a3624b;
+}
+.diagnostic-shape-difference {
+  background: #fff1eb;
+  color: #9d583f;
+}
 @media (max-width: 1100px) {
   .comparison-summary {
     padding: 18px;

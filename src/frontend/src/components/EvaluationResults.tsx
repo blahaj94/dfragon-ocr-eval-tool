@@ -1,19 +1,44 @@
 import { useState } from 'react'
-import type { EvaluationSample, EvaluationSnapshot } from '../../../shared/contracts'
+import type { EvaluationSample, EvaluationSnapshot, Result } from '../../../shared/contracts'
+import type { DiagnosticApi, DiagnosticSnapshot } from '../../../shared/diagnostics'
 import { ImageDialog } from './ImageDialog'
 import { SampleImage } from './SampleImage'
+import { SampleDiagnostics } from './SampleDiagnostics'
+
+interface EvaluationDiagnostics {
+  reportPath: string
+  busy: boolean
+  connectionError: string | null
+  snapshot: DiagnosticSnapshot
+  inspect: DiagnosticApi['inspect']
+  cancelOwned: (reportPath: string, sampleId: string) => Promise<Result<null>>
+  onError: (error: string) => void
+}
 
 export function EvaluationResults({
   samples,
-  status
+  status,
+  diagnostics
 }: {
   samples: EvaluationSample[]
   status: EvaluationSnapshot['status']
+  diagnostics?: EvaluationDiagnostics
 }): React.JSX.Element {
   const [showAll, setShowAll] = useState(false)
   const [selectedSample, setSelectedSample] = useState<EvaluationSample | null>(null)
   const mismatches = samples.filter((sample) => sample.editDistance > 0)
   const visibleSamples = showAll ? samples : mismatches
+
+  function closeSample(): void {
+    if (selectedSample != null && diagnostics != null) {
+      void diagnostics.cancelOwned(diagnostics.reportPath, selectedSample.id).then((result) => {
+        if (!result.ok) {
+          diagnostics.onError(result.error)
+        }
+      })
+    }
+    setSelectedSample(null)
+  }
 
   return (
     <section className="samples-panel panel" aria-label="샘플별 평가 결과">
@@ -142,7 +167,24 @@ export function EvaluationResults({
         <span>이미지를 클릭해 확대</span>
       </div>
       {selectedSample != null && (
-        <ImageDialog sample={selectedSample} onClose={() => setSelectedSample(null)} />
+        <ImageDialog sample={selectedSample} onClose={closeSample}>
+          {diagnostics != null && (
+            <SampleDiagnostics
+              key={`${diagnostics.reportPath}\u0000${selectedSample.id}`}
+              reportPath={diagnostics.reportPath}
+              sampleId={selectedSample.id}
+              busy={diagnostics.busy}
+              connectionError={diagnostics.connectionError}
+              progressMessage={
+                diagnostics.snapshot.reportPath === diagnostics.reportPath &&
+                diagnostics.snapshot.sampleId === selectedSample.id
+                  ? diagnostics.snapshot.message
+                  : null
+              }
+              inspect={diagnostics.inspect}
+            />
+          )}
+        </ImageDialog>
       )}
     </section>
   )

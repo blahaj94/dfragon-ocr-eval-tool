@@ -10,9 +10,11 @@ Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI�
 
 **문자 검사** 탭에서는 학습 설정·문자 사전과 `labels.json`만으로 문자 빈도·포함률·누락을 확인합니다. 이미지·가중치·Python이 필요하지 않습니다. [문자 검사 사용 안내](charset.md)를 참고하세요.
 
+평가 샘플의 확대창에서 **모델 입력 확인**을 누르면 실제 전처리와 최종 입력을 확인하고, 상세 정보에서 학습·평가 모드의 주요 shape를 봅니다. 해당 평가의 Python·모델·원본 파일이 필요합니다. [모델 입력 확인 안내](model-input.md)를 참고하세요.
+
 ## 실행 준비
 
-아래 GPU·Python·소스 요건은 **평가 실행**에 해당합니다. 결과 비교와 문자 검사는 Node.js·pnpm으로 앱을 실행한 뒤 각 화면에 필요한 입력 파일만 선택하면 됩니다.
+아래 GPU·Python·소스 요건은 **평가 실행과 모델 입력 확인**에 해당합니다. 결과 비교와 문자 검사는 Node.js·pnpm으로 앱을 실행한 뒤 각 화면에 필요한 입력 파일만 선택하면 됩니다.
 
 - Node.js 24와 pnpm 11.23.0. 기록된 PaddleOCR revision 검증을 위해 PATH에서 실행 가능한 Git도 필요합니다.
 - Python 3.12와 해당 체크포인트의 추론이 가능한 기존 Windows GPU/Paddle 환경. 확인한 학습 환경은 `paddlepaddle-gpu==3.2.2`, `numpy==2.2.6` 및 ldb-ocr의 Pillow·PyYAML·PaddleOCR 의존성을 사용합니다.
@@ -105,9 +107,13 @@ pnpm format:python:check
 pnpm build
 ```
 
-Python 개발 검사는 uv와 Python 3.12를 사용하며 `python/uv.lock`에 고정된 pytest·Ruff를 별도 개발 환경에서 실행합니다. `pnpm test:python`의 실제 명령은 `uv run --project python --group dev pytest -q python/tests`입니다. 이 환경에는 Paddle/GPU 패키지를 설치하지 않습니다. 앱에서 선택하는 기존 GPU 추론 환경과 구분하세요.
+Python 개발 검사는 uv와 Python 3.12를 사용하며 `python/uv.lock`에 고정된 pytest·Ruff·NumPy를 별도 개발 환경에서 실행합니다. `pnpm test:python`의 실제 명령은 `uv run --project python --group dev pytest -q python/tests`입니다. 이 환경에는 Paddle/GPU 패키지를 설치하지 않습니다. 앱에서 선택하는 기존 GPU 추론 환경과 구분하세요.
 
-결과 비교·문자 검사 추가 후 lint·format·typecheck·build, Vitest 79개, Playwright 22개를 통과했습니다. 기존 평가·Dataset 흐름을 포함하며 실제 Electron IPC로 두 기능을 검증했습니다. 평가 및 Dataset 도입 시 Python 테스트 42개도 통과했으며, 이번 변경에서 Python 소스는 수정하지 않았습니다.
+모델 입력 확인 추가 후 lint·format·typecheck·build, Vitest 94개, Playwright 28개를 통과했습니다. Python 전체 테스트 63개 통과 후 추가한 PNG 누락 회귀 테스트 1개도 통과했습니다. Ruff lint·format 검사도 통과했습니다. 기존 평가·Dataset·결과 비교·문자 검사 흐름을 포함합니다.
+
+진단 테스트는 실제 전처리 호출의 관찰 전후 값·shape·dtype, 미리보기 불변성, 같은 초기 모델 상태·hook 정리, 파일 변경·누락 거부, 측정 실패 표시와 작업 잠금을 확인합니다. Python의 가짜 모델 및 Playwright의 UI fixture 검사는 실제 Windows 모델 실행 검증과 구분합니다.
+
+모델 입력 확인은 Windows 실제 앱에서 사용자 체크포인트와 합성 ROI 3개로 평가 → 샘플 선택 → 기본 진단 → 상세 정보까지 통과했습니다. 실제 전처리 5단계와 `adaptive40`의 train/eval shape를 관측했습니다. 관찰 전후 최종 입력 값·shape·dtype이 같고 미리보기가 입력을 바꾸지 않는 별도 검사도 통과했습니다. 원본 보고서 바이트와 모델·설정·소스·PNG·metadata·라벨 21개 파일의 해시가 유지됐습니다. 이 과정에서 발견한 완료 표시와 프로세스 종료 사이의 경합도 수정하여 실제 종료까지 새 작업이 잠기도록 했습니다.
 
 Windows Electron에서도 앱 시작과 sandboxed preload, 실제 Python worker 실행 및 잘못된 입력의 실패 보고서 저장, 허용되지 않은 이미지 읽기 거절을 확인했습니다. 결과 비교는 고정 보고서로 네 그룹·배열 순서 독립 대조·이미지 확대·입력 불일치 거부를 확인했고 원본 바이트가 유지됐습니다.
 
@@ -127,5 +133,7 @@ Windows 검증 중 발견한 NumPy 초기화 멈춤은 표준 입력을 읽는 �
 별도 소형 앱에 필요한 범위만 적용했습니다. LDB의 monorepo UI 패키지 대신 React와 일반 CSS를 사용하고, ldb-ocr의 모델 로딩·전처리·디코딩·평가 코드는 복제하지 않고 선택한 소스에서 불러옵니다.
 
 결과 비교는 기존 보고서 검증 함수와 이미지·확대 컴포넌트를 재사용합니다. 문자 검사는 기존 Python 라벨 검증이 PNG까지 읽기 때문에 텍스트 구조 규칙만 Node에서 적용하며, 실제 ldb-ocr 사전 reader·CTC 클래스와 공백 설정 해석을 따릅니다. YAML 설정은 표준 파서로 읽고 추론 로더·평가 계산은 변경하지 않았습니다.
+
+모델 입력 확인은 기존 typed IPC·Python 프로세스·이미지 확대 구조를 사용합니다. ldb-ocr 소스를 수정하는 대신 검증한 전처리 함수의 반환 시점에서 실제 배열을 관찰합니다. 평가와 진단의 입력 준비는 같은 adapter 함수를 호출하며, 상세 shape는 별도 모델의 backbone hook으로 측정합니다.
 
 ldb-ocr 소스 스냅샷의 주요 재사용 지점은 `training/checkpoint.py`의 `load_trained_checkpoint`, `training/preprocessing.py`의 `tensor_from_png`, `training/evaluation.py`의 `character_classes`·`decode_output`, `recognition/metrics.py`의 `recognition_metrics`, `recognition/distance.py`의 `edit_distance`입니다. 경로와 해시는 로컬 보고서에 남으며 모델 파일이나 실제 이미지를 보고서 폴더로 복사하지 않습니다.

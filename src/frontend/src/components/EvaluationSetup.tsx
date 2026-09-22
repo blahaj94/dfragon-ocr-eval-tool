@@ -23,11 +23,13 @@ const requestFields: Record<PathKind, keyof EvaluationRequest> = {
 
 export function EvaluationSetup({
   busy,
+  busyLabel = '평가 진행 중',
   connected,
   onStart,
   onError
 }: {
   busy: boolean
+  busyLabel?: string
   connected: boolean
   onStart: (request: EvaluationRequest) => void
   onError: (error: string | null) => void
@@ -201,7 +203,7 @@ export function EvaluationSetup({
         className="button button-primary start-button"
         disabled={disabled || !complete}
       >
-        {busy ? '평가 진행 중' : choosing ? '파일 확인 중…' : '평가 시작'}
+        {busy ? busyLabel : choosing ? '파일 확인 중…' : '평가 시작'}
         <span aria-hidden="true">→</span>
       </button>
       {!complete && (

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="docs/comparison.md">결과 비교</a> · <a href="docs/charset.md">문자 검사</a>
+  <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="docs/comparison.md">결과 비교</a> · <a href="docs/charset.md">문자 검사</a> · <a href="docs/model-input.md">모델 입력 확인</a>
 </p>
 
 ## 01. 모델과 데이터 선택
@@ -45,3 +45,9 @@
 <sub>학습 결과 폴더 → labels.json → 문자 검사. Windows 실제 앱에서 고정 예제의 문자 빈도·포함률을 확인한 화면입니다.</sub>
 
 ![고유 문자 수, 사전 포함률, 공백과 이모지를 포함한 문자별 등장 횟수와 누락 여부](docs/screenshots/charset.png)
+
+## 07. 사진이 모델에 들어가는 과정 확인
+
+<sub>평가 사진 → 모델 입력 확인 → 상세 정보. Windows 실제 모델에서 합성 예제의 전처리와 학습·평가 모드 크기를 확인했습니다.</sub>
+
+![실제 전처리 단계와 패딩, 최종 입력의 shape·dtype·값 범위 및 학습·평가 모드 크기](docs/screenshots/model-input.png)

@@ -5,16 +5,19 @@ import { EvaluationMetrics } from '../components/EvaluationMetrics'
 import { EvaluationResults } from '../components/EvaluationResults'
 import { RunProgress } from '../components/RunProgress'
 import { useEvaluationSnapshot } from '../hooks/useEvaluationSnapshot'
+import { useDiagnosticSession } from '../hooks/useDiagnosticSession'
 
 export function EvaluationWorkspace(): React.JSX.Element {
   const { snapshot, connectionError } = useEvaluationSnapshot()
+  const diagnostics = useDiagnosticSession()
   const [requestError, setRequestError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [runVersion, setRunVersion] = useState(0)
   const commandPending = useRef(false)
-  const busy = starting || ['starting', 'running', 'cancelling'].includes(snapshot.status)
-  const error = connectionError ?? requestError ?? snapshot.error
+  const evaluationBusy = starting || ['starting', 'running', 'cancelling'].includes(snapshot.status)
+  const busy = evaluationBusy || diagnostics.busy
+  const error = connectionError ?? diagnostics.connectionError ?? requestError ?? snapshot.error
 
   async function startEvaluation(request: EvaluationRequest): Promise<void> {
     if (busy || commandPending.current) {
@@ -77,18 +80,33 @@ export function EvaluationWorkspace(): React.JSX.Element {
       <div className="workspace">
         <EvaluationSetup
           busy={busy}
-          connected={connectionError == null}
+          busyLabel={diagnostics.busy ? '모델 입력 확인 중' : '평가 진행 중'}
+          connected={connectionError == null && diagnostics.connectionError == null}
           onStart={(request) => void startEvaluation(request)}
           onError={setRequestError}
         />
         <div className="results-column">
+          {diagnostics.busy && (
+            <p className="diagnostic-workspace-status" role="status">
+              {diagnostics.snapshot.message ?? '모델 입력 진단 상태를 확인하고 있습니다.'}
+            </p>
+          )}
           <RunProgress
             snapshot={snapshot}
             cancelling={cancelling}
             onCancel={() => void cancelEvaluation()}
           />
           <EvaluationMetrics snapshot={snapshot} />
-          <EvaluationResults key={runVersion} samples={snapshot.samples} status={snapshot.status} />
+          <EvaluationResults
+            key={runVersion}
+            samples={snapshot.samples}
+            status={snapshot.status}
+            diagnostics={
+              diagnostics.available && !evaluationBusy && snapshot.reportPath != null
+                ? { ...diagnostics, reportPath: snapshot.reportPath, onError: setRequestError }
+                : undefined
+            }
+          />
           {snapshot.reportPath != null && (
             <div className="report-panel panel">
               <div>

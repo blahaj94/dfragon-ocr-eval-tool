@@ -10,20 +10,35 @@ import { ComparisonService } from './comparison/service'
 import { registerComparisonIpc } from './comparison-ipc'
 import { CharsetService } from './charset/service'
 import { registerCharsetIpc } from './charset-ipc'
+import { DiagnosticsRunner } from './diagnostics/runner'
+import { registerDiagnosticsIpc } from './diagnostics-ipc'
+import { DIAGNOSTIC_IPC } from '../shared/diagnostics'
 import { validateDevelopmentUrl } from './window-security'
 
 let window: BrowserWindow | null = null
 let runner: EvaluationRunner | null = null
+let diagnostics: DiagnosticsRunner | null = null
 let quitting = false
 
+function finishQuitting(): void {
+  if (quitting && !runner?.isActive() && !diagnostics?.isActive()) {
+    app.quit()
+  }
+}
+
 function cancelBeforeQuit(event: { preventDefault(): void }): void {
-  if (!runner?.isActive()) {
+  if (!runner?.isActive() && !diagnostics?.isActive()) {
     return
   }
   event.preventDefault()
   quitting = true
   try {
-    runner.cancel()
+    if (runner?.isActive()) {
+      runner.cancel()
+    }
+    if (diagnostics?.isActive()) {
+      diagnostics.cancel()
+    }
   } catch {
     // The runner publishes the cancellation error; keep the window and worker available.
     quitting = false
@@ -78,15 +93,28 @@ if (!app.requestSingleInstanceLock()) {
           nodeIntegration: false
         }
       })
-      runner = new EvaluationRunner(join(app.getAppPath(), 'python', 'worker.py'), (snapshot) => {
-        if (window != null && !window.isDestroyed()) {
-          window.webContents.send(IPC.snapshot, snapshot)
+      runner = new EvaluationRunner(
+        join(app.getAppPath(), 'python', 'worker.py'),
+        (snapshot) => {
+          if (window != null && !window.isDestroyed()) {
+            window.webContents.send(IPC.snapshot, snapshot)
+          }
+          finishQuitting()
+        },
+        () => diagnostics?.isActive() ?? false
+      )
+      diagnostics = new DiagnosticsRunner(
+        join(app.getAppPath(), 'python', 'diagnostic_worker.py'),
+        runner,
+        (snapshot) => {
+          if (window != null && !window.isDestroyed()) {
+            window.webContents.send(DIAGNOSTIC_IPC.snapshot, snapshot)
+          }
+          finishQuitting()
         }
-        if (quitting && !runner?.isActive()) {
-          app.quit()
-        }
-      })
+      )
       registerEvaluationIpc(window, documentUrl, runner)
+      registerDiagnosticsIpc(window, documentUrl, diagnostics)
       registerComparisonIpc(window, documentUrl, new ComparisonService())
       registerCharsetIpc(window, documentUrl, new CharsetService())
       registerDatasetIpc(

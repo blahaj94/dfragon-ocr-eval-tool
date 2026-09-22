@@ -169,10 +169,13 @@ class LdbOcrAdapter:
     def validate_image(self, raw: bytes) -> None:
         self.tensor_from_png(raw)
 
-    def predict(self, raw: bytes) -> tuple[str, None]:
+    def model_input(self, raw: bytes) -> object:
         tensor, _ = self.tensor_from_png(raw)
+        return self.paddle.to_tensor(self.np.stack([tensor]))
+
+    def predict(self, raw: bytes) -> tuple[str, None]:
         with self.paddle.no_grad():
-            output = self.model(self.paddle.to_tensor(self.np.stack([tensor]))).numpy()
+            output = self.model(self.model_input(raw)).numpy()
         return self.decode_output(output, self.classes), None
 
     def summarize(self, pairs: list[tuple[str, str]]) -> dict:

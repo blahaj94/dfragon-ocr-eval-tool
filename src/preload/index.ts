@@ -3,6 +3,7 @@ import { IPC, type EvaluationApi, type EvaluationSnapshot, type Result } from '.
 import { DATASET_IPC, type DatasetApi } from '../shared/dataset'
 import { COMPARISON_IPC, type ComparisonApi } from '../shared/comparison'
 import { CHARSET_IPC, type CharsetApi } from '../shared/charset'
+import { DIAGNOSTIC_IPC, type DiagnosticApi, type DiagnosticSnapshot } from '../shared/diagnostics'
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, ...args) as Promise<Result<T>>
@@ -52,3 +53,19 @@ const charset: CharsetApi = {
 }
 
 contextBridge.exposeInMainWorld('charset', charset)
+
+const diagnostics: DiagnosticApi = {
+  inspect: (reportPath, sampleId, includeShapes) =>
+    invoke(DIAGNOSTIC_IPC.inspect, reportPath, sampleId, includeShapes),
+  cancel: () => invoke(DIAGNOSTIC_IPC.cancel),
+  getSnapshot: () => invoke(DIAGNOSTIC_IPC.getSnapshot),
+  onSnapshot: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: DiagnosticSnapshot): void => {
+      listener(snapshot)
+    }
+    ipcRenderer.on(DIAGNOSTIC_IPC.snapshot, handler)
+    return () => ipcRenderer.removeListener(DIAGNOSTIC_IPC.snapshot, handler)
+  }
+}
+
+contextBridge.exposeInMainWorld('diagnostics', diagnostics)

@@ -3,17 +3,27 @@ import type { Result } from '../../../shared/contracts'
 
 export type ImageReader = (imagePath: string) => Promise<Result<string>>
 
-export function SampleImage({
-  imagePath,
-  label,
-  enlarged = false,
-  readImage = window.evaluation.readImage
-}: {
-  imagePath: string
+export interface ImagePreview {
+  url: string
+  width: number
+  height: number
+  contentBounds: { x: number; y: number; width: number; height: number } | null
+}
+
+type SampleImageProps = {
   label: string
   enlarged?: boolean
   readImage?: ImageReader
-}): React.JSX.Element {
+} & ({ imagePath: string; preview?: never } | { imagePath?: never; preview: ImagePreview })
+
+export function SampleImage({
+  imagePath,
+  preview,
+  label,
+  enlarged = false,
+  readImage = window.evaluation.readImage
+}: SampleImageProps): React.JSX.Element {
+  const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const [image, setImage] = useState<{
     path: string
     url: string | null
@@ -22,6 +32,9 @@ export function SampleImage({
   } | null>(null)
 
   useEffect(() => {
+    if (preview != null || imagePath == null) {
+      return
+    }
     let active = true
     void readImage(imagePath)
       .then((result) => {
@@ -47,7 +60,44 @@ export function SampleImage({
     return () => {
       active = false
     }
-  }, [imagePath, readImage])
+  }, [imagePath, preview, readImage])
+
+  if (preview != null) {
+    if (failedPreview === preview.url) {
+      return (
+        <span className="image-placeholder image-error">표시용 미리보기를 열지 못했습니다.</span>
+      )
+    }
+    const bounds = preview.contentBounds
+    return (
+      <span
+        className={`diagnostic-preview-frame ${enlarged ? 'preview-enlarged' : ''}`}
+        style={{
+          aspectRatio: `${preview.width} / ${preview.height}`,
+          width: enlarged ? '100%' : `min(100%, ${(190 * preview.width) / preview.height}px)`
+        }}
+      >
+        <img
+          src={preview.url}
+          alt={label}
+          draggable={false}
+          onError={() => setFailedPreview(preview.url)}
+        />
+        {bounds != null && (
+          <span
+            className="diagnostic-content-bounds"
+            title="실제 이미지 영역"
+            style={{
+              left: `${(bounds.x / preview.width) * 100}%`,
+              top: `${(bounds.y / preview.height) * 100}%`,
+              width: `${(bounds.width / preview.width) * 100}%`,
+              height: `${(bounds.height / preview.height) * 100}%`
+            }}
+          />
+        )}
+      </span>
+    )
+  }
 
   if (image?.path !== imagePath || image.reader !== readImage) {
     return <span className="image-placeholder">불러오는 중…</span>
