@@ -61,9 +61,15 @@ if (!app.requestSingleInstanceLock()) {
         callback(false)
       )
       session.defaultSession.setPermissionCheckHandler(() => false)
+      const resourcesDirectory = app.isPackaged
+        ? process.resourcesPath
+        : join(app.getAppPath(), 'resources')
+      const pythonDirectory = join(
+        app.isPackaged ? process.resourcesPath : app.getAppPath(),
+        'python'
+      )
       const iconPath = join(
-        app.getAppPath(),
-        'resources',
+        resourcesDirectory,
         process.platform === 'win32' ? 'icon.ico' : 'icon.png'
       )
       if (process.platform === 'win32') {
@@ -94,7 +100,7 @@ if (!app.requestSingleInstanceLock()) {
         }
       })
       runner = new EvaluationRunner(
-        join(app.getAppPath(), 'python', 'worker.py'),
+        join(pythonDirectory, 'worker.py'),
         (snapshot) => {
           if (window != null && !window.isDestroyed()) {
             window.webContents.send(IPC.snapshot, snapshot)
@@ -104,7 +110,7 @@ if (!app.requestSingleInstanceLock()) {
         () => diagnostics?.isActive() ?? false
       )
       diagnostics = new DiagnosticsRunner(
-        join(app.getAppPath(), 'python', 'diagnostic_worker.py'),
+        join(pythonDirectory, 'diagnostic_worker.py'),
         runner,
         (snapshot) => {
           if (window != null && !window.isDestroyed()) {
@@ -122,7 +128,7 @@ if (!app.requestSingleInstanceLock()) {
         documentUrl,
         new DatasetService(
           join(app.getPath('userData'), 'dataset-splits.json'),
-          join(app.getAppPath(), 'python', 'dataset_check.py')
+          join(pythonDirectory, 'dataset_check.py')
         )
       )
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))

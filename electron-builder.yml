@@ -1,0 +1,38 @@
+appId: com.dfragon.ocr-eval-tool
+productName: Real OCR Evaluation
+directories:
+  buildResources: resources
+  output: dist
+asar: true
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: python
+    to: python
+    filter:
+      - '*.py'
+      - eval_worker/**/*.py
+  - from: resources
+    to: .
+    filter:
+      - icon.ico
+      - icon.png
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+artifactName: DFragon-OCR-Eval-${version}-${arch}.${ext}
+nsis:
+  artifactName: DFragon-OCR-Eval-${version}-${arch}-setup.${ext}
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+publish: null

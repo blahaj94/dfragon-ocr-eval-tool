@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/blahaj94/dfragon-ocr-eval-tool/releases/latest"><strong>Windows 다운로드</strong></a> · 설치 파일 또는 ZIP
+</p>
+
+<p align="center">
   <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="docs/comparison.md">결과 비교</a> · <a href="docs/charset.md">문자 검사</a> · <a href="docs/model-input.md">모델 입력 확인</a>
 </p>
 

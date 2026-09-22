@@ -12,7 +12,19 @@ Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI�
 
 평가 샘플의 확대창에서 **모델 입력 확인**을 누르면 실제 전처리와 최종 입력을 확인하고, 상세 정보에서 학습·평가 모드의 주요 shape를 봅니다. 해당 평가의 Python·모델·원본 파일이 필요합니다. [모델 입력 확인 안내](model-input.md)를 참고하세요.
 
-## 실행 준비
+## Windows 패키지 실행
+
+[최신 릴리즈](https://github.com/blahaj94/dfragon-ocr-eval-tool/releases/latest)에서 Windows x64 패키지를 받습니다.
+
+- `DFragon-OCR-Eval-버전-x64-setup.exe`: 설치 후 **Real OCR Evaluation** 실행.
+- `DFragon-OCR-Eval-버전-x64.zip`: 폴더 전체를 압축 해제한 뒤 **Real OCR Evaluation.exe** 실행. EXE만 따로 옮기지 마세요.
+- `SHA256SUMS.txt`: 다운로드 파일 무결성 확인용 체크섬.
+
+패키지 실행에는 Node.js·pnpm 설치가 필요 없습니다. 평가·모델 입력 확인에는 기존 Python GPU 환경·Git·학습 소스·모델이 필요하며, Dataset 검사에는 Python 3.12와 Pillow가 필요합니다. 이 환경과 모델·데이터는 패키지에 포함하지 않습니다. 결과 비교·문자 검사는 해당 입력 파일만 있으면 됩니다.
+
+첫 배포는 코드 서명 없는 패키지입니다. Windows에서 게시자를 확인할 수 없다는 안내가 표시될 수 있습니다.
+
+## 소스에서 실행하기
 
 아래 GPU·Python·소스 요건은 **평가 실행과 모델 입력 확인**에 해당합니다. 결과 비교와 문자 검사는 Node.js·pnpm으로 앱을 실행한 뒤 각 화면에 필요한 입력 파일만 선택하면 됩니다.
 
@@ -38,6 +50,15 @@ pnpm start
 ```
 
 실제 평가는 Windows GPU PC에서 실행합니다. 다른 OS의 UI·계약 테스트 통과가 Windows GPU 추론 성공을 의미하지는 않습니다.
+
+Windows에서 동일한 설치 파일과 ZIP을 빌드하려면 다음 명령을 실행합니다. 결과물은 `dist/`에 생성되며 자동 업로드하지 않습니다.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm package:win
+```
+
+패키징은 고정된 electron-builder 버전과 저장소의 빨간 용 아이콘을 사용합니다. Python 작업 파일은 외부 Python이 읽을 수 있는 `resources/python/`에 배치합니다. 가상환경·테스트·모델·데이터는 배포 파일에 넣지 않습니다. NSIS를 사용하므로 불필요한 Squirrel 패키징 도구의 설치 스크립트는 실행하지 않습니다.
 
 ## 평가하기
 
