@@ -4,6 +4,8 @@
 
 Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI를 반복 평가하는 로컬 Electron 앱**입니다. 모델과 데이터 경로를 선택해 평가하고, 틀린 샘플을 확인하며, 실행별 `report.json`을 저장합니다.
 
+**Dataset** 탭에서는 캡처 이벤트를 train / val / test에 직접 배정하고 검사·확정한 목록을 저장합니다. [Dataset 사용 안내](dataset.md)를 참고하세요.
+
 ## 실행 준비
 
 - Node.js 24와 pnpm 11.23.0. 기록된 PaddleOCR revision 검증을 위해 PATH에서 실행 가능한 Git도 필요합니다.
@@ -99,7 +101,7 @@ pnpm build
 
 Python 개발 검사는 uv와 Python 3.12를 사용하며 `python/uv.lock`에 고정된 pytest·Ruff를 별도 개발 환경에서 실행합니다. `pnpm test:python`의 실제 명령은 `uv run --project python --group dev pytest -q python/tests`입니다. 이 환경에는 Paddle/GPU 패키지를 설치하지 않습니다. 앱에서 선택하는 기존 GPU 추론 환경과 구분하세요.
 
-MVP 검증에서 lint·format·typecheck·build, Vitest 8개, pytest 23개, Playwright 5개를 통과했습니다. Windows Electron에서도 앱 시작과 sandboxed preload, 실제 Python worker 실행 및 잘못된 입력의 실패 보고서 저장, 허용되지 않은 이미지 읽기 거절을 확인했습니다.
+평가 및 Dataset 검증에서 lint·format·typecheck·build, Vitest 20개, pytest 42개, Playwright 12개를 통과했습니다. Windows Electron에서도 앱 시작과 sandboxed preload, 실제 Python worker 실행 및 잘못된 입력의 실패 보고서 저장, 허용되지 않은 이미지 읽기 거절을 확인했습니다.
 
 Windows의 기존 GPU 환경에서 사용자 체크포인트를 실제 로드하고 기존 검증 PNG 2개를 순차 추론하는 adapter 연결 검사를 통과했습니다. 이어 합성 예제 이미지 3개와 Cropper 형식 metadata·라벨로 실제 Electron 앱의 입력 선택 → GPU 추론 → 결과 확인 → 보고서 저장 → 이미지 확대까지 확인했습니다. README의 스크린샷은 이 실행을 Playwright로 직접 캡처한 것이며 예측값이나 화면을 조작하지 않았습니다. 작은 글꼴로 만든 예제의 수치는 사용법 시연용이며 모델 성능을 판단하는 벤치마크가 아닙니다.
 

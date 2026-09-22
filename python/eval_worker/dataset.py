@@ -83,7 +83,14 @@ def load_samples(dataset_directory: Path, labels_path: Path) -> list[Sample]:
         raise ValueError("labels.json requires exactly schemaVersion and samples.")
     if labels["schemaVersion"] != 1:
         raise ValueError("Only labels schemaVersion 1 is supported.")
-    rows = labels["samples"]
+    return load_samples_from_rows(root, labels["samples"])
+
+
+def load_samples_from_rows(dataset_directory: Path, rows: object) -> list[Sample]:
+    """Validate labels or already stored rows with the same ROI association rules."""
+    root = dataset_directory.resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("datasetDirectory must be the Cropper captures directory.")
     if not isinstance(rows, list) or not rows:
         raise ValueError("labels.json samples must be a nonempty array.")
 

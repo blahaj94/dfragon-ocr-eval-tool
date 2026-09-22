@@ -681,6 +681,272 @@ footer {
 footer span {
   letter-spacing: 0;
 }
+.workspace-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+.workspace-tabs button {
+  padding: 12px 22px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #7d897e;
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace-tabs button[aria-selected='true'] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.dataset-workspace {
+  display: grid;
+  gap: 18px;
+}
+.dataset-workspace .error-banner {
+  margin-bottom: 0;
+}
+.dataset-source,
+.dataset-validation,
+.dataset-export {
+  padding: 24px;
+}
+.dataset-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+}
+.dataset-source-actions,
+.dataset-state-line,
+.dataset-action-buttons,
+.dataset-export-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.dataset-source-actions p,
+.dataset-export-help {
+  margin: 0;
+  font-size: 11px;
+  color: #81917d;
+  line-height: 1.7;
+}
+.dataset-state-line {
+  font-size: 11px;
+  color: #6e8367;
+  flex-wrap: wrap;
+  line-height: 1.7;
+}
+.dataset-record-path {
+  font-size: 10px;
+  color: #96a08f;
+  overflow-wrap: anywhere;
+}
+.dataset-active-path {
+  margin: -8px 0 0;
+  font-size: 11px;
+  color: #8b9883;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.dataset-active-path code {
+  margin-left: 10px;
+  color: #657d5e;
+}
+.dataset-counts .metric-card strong {
+  font-size: 28px;
+}
+.dataset-groups {
+  overflow: hidden;
+}
+.dataset-groups > .panel-heading {
+  padding: 24px;
+}
+.dataset-assignment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+  border-top: 1px solid #eaf0e6;
+  background: #f9fbf7;
+  font-size: 11px;
+  color: #6c7e62;
+}
+.dataset-assignment > span {
+  margin-right: auto;
+}
+.dataset-assignment > select {
+  width: 170px;
+}
+.dataset-assignment > label {
+  font-size: 10px;
+}
+.dataset-path-notice {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #fbf6eb;
+  color: #a17c44;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.dataset-groups > .dataset-path-notice {
+  margin: 0;
+  border-radius: 0;
+  padding-left: 24px;
+}
+.dataset-table-scroll {
+  max-height: 460px;
+}
+.dataset-table thead th,
+.dataset-table td,
+.dataset-table tbody th {
+  padding: 15px 18px;
+}
+.dataset-table thead th:first-child {
+  width: 58px;
+}
+.dataset-table thead th:nth-child(2) {
+  width: auto;
+}
+.dataset-table thead th:nth-child(3),
+.dataset-table thead th:nth-child(4),
+.dataset-table thead th:nth-child(5) {
+  width: 10%;
+}
+.dataset-table thead th:last-child {
+  width: 22%;
+}
+.dataset-table tbody th {
+  position: static;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: #485d3f;
+  overflow-wrap: anywhere;
+  border: 0;
+  border-bottom: 1px solid #eef1ec;
+}
+.dataset-table input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.dataset-table input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+.dataset-lock {
+  display: block;
+  margin-top: 5px;
+  color: #96a18b;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.unassigned-label {
+  color: #a38e6b;
+}
+.dataset-table-note {
+  margin: 0;
+  padding: 15px 24px;
+  border-top: 1px solid #edf1ea;
+  color: #94a08a;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.dataset-empty {
+  min-height: 210px;
+  padding: 34px 24px;
+}
+.dataset-action-buttons {
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dataset-check-empty {
+  margin: 20px 0 0;
+  font-size: 11px;
+  color: #8d9b82;
+  line-height: 1.7;
+}
+.dataset-check-result {
+  margin-top: 22px;
+}
+.dataset-check-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+.check-passed {
+  color: var(--accent);
+}
+.check-failed {
+  color: #ad6146;
+}
+.dataset-issues {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0 0;
+  display: grid;
+  gap: 10px;
+}
+.dataset-issues > li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 13px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.dataset-issues .issue-error {
+  background: #fff1eb;
+  color: #a3624b;
+}
+.dataset-issues .issue-warning {
+  background: #faf6ea;
+  color: #998151;
+}
+.issue-severity {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.dataset-issues p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dataset-issues ul {
+  margin: 8px 0 0;
+  padding-left: 15px;
+  overflow-wrap: anywhere;
+}
+.dataset-export-help {
+  margin: 18px 0 14px;
+}
+.dataset-export-controls {
+  align-items: flex-end;
+}
+.dataset-export-controls > .field {
+  margin: 0;
+  width: min(650px, 75%);
+}
+.dataset-export-success {
+  margin-top: 18px;
+  padding: 15px;
+  display: grid;
+  gap: 7px;
+  background: #edf5e9;
+  border-radius: 5px;
+  font-size: 11px;
+  color: #537949;
+}
+.dataset-export-success code {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
 .image-dialog {
   padding: 0;
   border: 1px solid #d6dfd2;
@@ -744,6 +1010,15 @@ footer span {
   line-height: 1.7;
 }
 @media (max-width: 1100px) {
+  .dataset-inputs {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .dataset-table thead th,
+  .dataset-table td,
+  .dataset-table tbody th {
+    padding: 13px 10px;
+  }
   .app-shell {
     padding: 0 23px;
   }

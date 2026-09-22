@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url'
 import { IPC } from '../shared/contracts'
 import { EvaluationRunner } from './evaluation/runner'
 import { registerEvaluationIpc } from './ipc'
+import { DatasetService } from './dataset/service'
+import { registerDatasetIpc } from './dataset-ipc'
 import { validateDevelopmentUrl } from './window-security'
 
 let window: BrowserWindow | null = null
@@ -81,6 +83,14 @@ if (!app.requestSingleInstanceLock()) {
         }
       })
       registerEvaluationIpc(window, documentUrl, runner)
+      registerDatasetIpc(
+        window,
+        documentUrl,
+        new DatasetService(
+          join(app.getPath('userData'), 'dataset-splits.json'),
+          join(app.getAppPath(), 'python', 'dataset_check.py')
+        )
+      )
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       window.webContents.on('will-navigate', (event) => event.preventDefault())
       window.webContents.on('will-attach-webview', (event) => event.preventDefault())

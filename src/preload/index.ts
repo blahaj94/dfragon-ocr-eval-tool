@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type EvaluationApi, type EvaluationSnapshot, type Result } from '../shared/contracts'
+import { DATASET_IPC, type DatasetApi } from '../shared/dataset'
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, ...args) as Promise<Result<T>>
@@ -24,3 +25,14 @@ const api: EvaluationApi = {
 }
 
 contextBridge.exposeInMainWorld('evaluation', api)
+
+const dataset: DatasetApi = {
+  getSnapshot: () => invoke(DATASET_IPC.getSnapshot),
+  load: (selection) => invoke(DATASET_IPC.load, selection),
+  assign: (eventIds, split) => invoke(DATASET_IPC.assign, eventIds, split),
+  check: () => invoke(DATASET_IPC.check),
+  confirm: () => invoke(DATASET_IPC.confirm),
+  export: (directory) => invoke(DATASET_IPC.export, directory)
+}
+
+contextBridge.exposeInMainWorld('dataset', dataset)

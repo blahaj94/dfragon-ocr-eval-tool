@@ -5,11 +5,11 @@
 <h1 align="center">Real OCR Evaluation</h1>
 
 <p align="center">
-  체크포인트와 실제 이미지를 선택해 <strong>OCR 정확도와 오답을 확인하는 Windows GPU 앱</strong>입니다.
+  캡처 데이터를 나누고, <strong>OCR 정확도와 오답을 확인하는 Windows 앱</strong>입니다.
 </p>
 
 <p align="center">
-  <a href="docs/guide.md">실행 안내</a> · <a href="examples/labels.json">labels.json 예제</a>
+  <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="examples/labels.json">labels.json 예제</a>
 </p>
 
 ## 01. 모델과 데이터 선택
@@ -27,3 +27,9 @@
 ## 03. 이미지를 확대해 비교
 
 ![ROI 이미지를 확대해 정답과 예측을 비교하는 실제 앱 화면](docs/screenshots/zoom.png)
+
+## 04. Dataset을 train / val / test로 나누기
+
+<sub>캡처 묶음 선택 → 직접 배정 → 검사 → 확정 → 목록 저장. Windows 앱에서 예제 PNG로 확인한 화면입니다.</sub>
+
+![캡처 이벤트별 배정과 확정 잠금, 용도별 개수 및 목록 저장을 보여주는 Dataset 화면](docs/screenshots/dataset.png)

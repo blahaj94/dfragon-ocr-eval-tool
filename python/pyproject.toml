@@ -3,7 +3,7 @@ name = "dfragon-ocr-eval-worker"
 version = "0.1.0"
 description = "Local evaluation adapter for an existing ldb-ocr training runtime"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = ["Pillow==11.3.0"]
 
 [dependency-groups]
 dev = ["pytest==9.1.1", "ruff==0.16.8"]
