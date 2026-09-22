@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IPC } from '../shared/contracts'
 import { EvaluationRunner } from './evaluation/runner'
+import { EvaluationSettingsStore } from './evaluation/settings'
 import { registerEvaluationIpc } from './ipc'
 import { DatasetService } from './dataset/service'
 import { registerDatasetIpc } from './dataset-ipc'
@@ -119,7 +120,12 @@ if (!app.requestSingleInstanceLock()) {
           finishQuitting()
         }
       )
-      registerEvaluationIpc(window, documentUrl, runner)
+      registerEvaluationIpc(
+        window,
+        documentUrl,
+        runner,
+        new EvaluationSettingsStore(join(app.getPath('userData'), 'evaluation-settings.json'))
+      )
       registerDiagnosticsIpc(window, documentUrl, diagnostics)
       registerComparisonIpc(window, documentUrl, new ComparisonService())
       registerCharsetIpc(window, documentUrl, new CharsetService())

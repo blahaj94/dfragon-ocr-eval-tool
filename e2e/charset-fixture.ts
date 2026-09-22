@@ -129,6 +129,14 @@ export async function installCharsetFixture(
       }
       let labelsChoices = 0
       fixtureWindow.evaluation = {
+        getSettings: async () => ({
+          ok: true,
+          value: {
+            settings: {},
+            pythons: []
+          }
+        }),
+        saveSettings: async () => ({ ok: true, value: null }),
         choosePath: async (kind) => {
           fixtureWindow.charsetFixture.choices.push(kind)
           if (kind === 'labels') {

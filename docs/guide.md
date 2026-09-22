@@ -62,13 +62,15 @@ pnpm package:win
 
 ## 평가하기
 
-1. 기존 GPU 환경의 `python.exe`와 ldb-ocr 소스 폴더를 선택합니다.
+1. **Python 실행 파일** 목록에서 설치된 버전·경로를 확인하고 Python 3.12 환경을 선택합니다. Windows Python 런처와 PATH에서 찾으며, 목록에 없는 가상환경은 **찾아보기**로 추가합니다. 이어 ldb-ocr 소스 폴더를 선택합니다.
 2. 학습 결과 폴더를 선택하고 지원되는 체크포인트를 선택합니다. 현재 로더 지원 대상은 `checkpoints/latest.pdparams`입니다.
 3. Cropper의 `captures` 루트, `labels.json`, 보고서를 저장할 폴더를 선택합니다.
 4. 평가를 시작합니다. 동시에 하나만 실행하며 처리 수를 표시합니다. 취소하면 결과를 완료된 전체 성적으로 표시하지 않습니다.
 5. 기본으로 표시되는 오답 목록에서 이미지·정답·예측·편집거리·모델이 제공하는 confidence를 확인합니다. 전체 보기와 이미지 확대도 지원합니다.
 
 평가가 완료되면 CER, Exact Match, 평가 샘플 수, 정답 문자 수를 표시합니다. 빈 예측과 낮은 confidence도 정상 추론 결과이면 집계에 포함합니다. confidence가 제공되지 않으면 값이 없는 상태로 표시합니다.
+
+평가 설정에서 고른 Python·경로·체크포인트는 자동 저장되어 앱을 다시 열어도 유지됩니다. 저장된 Python을 우선하며, 처음에는 발견한 Python 3.12를 선택합니다. 다른 버전은 목록에서 미지원으로 표시합니다. 목록은 버전을 확인한 결과이며 GPU 의존성 설치 여부를 판정하지 않습니다. 저장 실패는 화면에 표시하고 기존 설정 파일을 보존합니다.
 
 보고서 폴더는 학습 결과·캡처 루트·ldb-ocr 소스 폴더 밖에 선택하세요. 취소는 현재 모델 초기화나 샘플 추론이 끝난 뒤 반영될 수 있습니다.
 
@@ -129,6 +131,8 @@ pnpm build
 ```
 
 Python 개발 검사는 uv와 Python 3.12를 사용하며 `python/uv.lock`에 고정된 pytest·Ruff·NumPy를 별도 개발 환경에서 실행합니다. `pnpm test:python`의 실제 명령은 `uv run --project python --group dev pytest -q python/tests`입니다. 이 환경에는 Paddle/GPU 패키지를 설치하지 않습니다. 앱에서 선택하는 기존 GPU 추론 환경과 구분하세요.
+
+v0.1.1에서는 설치된 Python 버전 선택과 평가 설정 자동 저장을 추가했습니다. lint·format·typecheck·build, Vitest 102개와 Playwright 33개를 통과했습니다. 실제 Windows 패키지에서 설치된 Python 3.12·3.13·3.14 검색, 미지원 버전 표시, 선택 및 경로·체크포인트 저장과 재시작 후 복원을 확인했습니다. 이 수정판의 검증에서는 GPU 추론을 다시 실행하지 않았습니다.
 
 모델 입력 확인 추가 후 lint·format·typecheck·build, Vitest 94개, Playwright 28개를 통과했습니다. Python 전체 테스트 63개 통과 후 추가한 PNG 누락 회귀 테스트 1개도 통과했습니다. Ruff lint·format 검사도 통과했습니다. 기존 평가·Dataset·결과 비교·문자 검사 흐름을 포함합니다.
 

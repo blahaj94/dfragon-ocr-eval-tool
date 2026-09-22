@@ -5,6 +5,49 @@ import {
   selectEvaluationInputs
 } from './renderer-fixture'
 
+test('Python selector shows versions and paths, disables unsupported versions and saves a selected environment', async ({
+  page
+}) => {
+  await installRendererFixture(page, 'completed')
+  await page.goto('/')
+  const selector = page.getByLabel('Python 실행 파일', { exact: true })
+  await expect(selector.getByRole('option', { name: /3\.13\.7/ })).toBeDisabled()
+  await expect(selector.getByRole('option', { name: /3\.12\.10/ })).toContainText('gpu-env')
+  await selector.selectOption('C:\\fixture\\gpu-env\\python.exe')
+  await expect(selector).toHaveValue('C:\\fixture\\gpu-env\\python.exe')
+})
+
+test('settings save failure is shown and the unsaved Python choice is not presented as stored', async ({
+  page
+}) => {
+  await installRendererFixture(page, 'settings-save-error')
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Python 실행 파일 선택', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('평가 설정을 저장하지 못했습니다.')
+  await expect(page.getByLabel('Python 실행 파일', { exact: true })).toHaveValue('')
+})
+
+test('missing saved checkpoint and settings read failures do not silently become usable settings', async ({
+  page
+}) => {
+  await installRendererFixture(page, 'missing-checkpoint')
+  await page.goto('/')
+  await expect(page.getByRole('alert')).toContainText('저장된 체크포인트를 찾지 못했습니다.')
+  await expect(page.getByLabel('체크포인트', { exact: true })).toHaveValue('')
+  await expect(page.getByRole('button', { name: '평가 시작', exact: true })).toBeDisabled()
+})
+
+test('settings read failure remains visible while manual path selection is available', async ({
+  page
+}) => {
+  await installRendererFixture(page, 'settings-read-error')
+  await page.goto('/')
+  await expect(page.getByRole('alert')).toContainText('설정 파일을 읽지 못했습니다.')
+  await expect(
+    page.getByRole('button', { name: 'Python 실행 파일 선택', exact: true })
+  ).toBeEnabled()
+})
+
 test('fixture UI connects selection, metrics, mismatch review, image zoom and report action', async ({
   page
 }, testInfo) => {

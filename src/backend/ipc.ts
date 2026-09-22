@@ -5,13 +5,15 @@ import { IPC, type PathKind, type Result } from '../shared/contracts'
 import { EvaluationRunner } from './evaluation/runner'
 import { readPath } from './evaluation/validation'
 import { requireSender } from './window-security'
+import type { EvaluationSettingsStore } from './evaluation/settings'
 
 const pathKinds: readonly PathKind[] = ['python', 'source', 'run', 'dataset', 'labels', 'output']
 
 export function registerEvaluationIpc(
   window: BrowserWindow,
   documentUrl: string,
-  runner: EvaluationRunner
+  runner: EvaluationRunner,
+  settings: EvaluationSettingsStore
 ): void {
   function handle(channel: string, arity: number, handler: (...args: unknown[]) => unknown): void {
     ipcMain.handle(channel, async (event, ...args): Promise<Result<unknown>> => {
@@ -30,6 +32,11 @@ export function registerEvaluationIpc(
     })
   }
 
+  handle(IPC.getSettings, 0, () => settings.get())
+  handle(IPC.saveSettings, 1, async (input) => {
+    await settings.save(input)
+    return null
+  })
   handle(IPC.choosePath, 1, async (kind) => {
     if (!pathKinds.includes(kind as PathKind)) {
       throw new Error('선택 항목이 올바르지 않습니다.')

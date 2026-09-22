@@ -263,6 +263,14 @@ export async function installDatasetFixture(page: Page, mode: FixtureMode): Prom
         run: 'C:\\fixture\\run'
       }
       fixtureWindow.evaluation = {
+        getSettings: async () => ({
+          ok: true,
+          value: {
+            settings: {},
+            pythons: [{ executable: paths.python, version: '3.12.14', supported: true }]
+          }
+        }),
+        saveSettings: async () => ({ ok: true, value: null }),
         choosePath: async (kind) => {
           if (kind === 'dataset') {
             datasetPathChoices += 1

@@ -6,30 +6,10 @@ import { CharsetWorkspace } from '../sections/CharsetWorkspace'
 import dragonIcon from '../../../../resources/icon.png'
 
 const tabs = [
-  {
-    id: 'evaluation',
-    label: '평가',
-    title: '실제 이미지로, 정확하게.',
-    description: '학습 체크포인트와 캡처 데이터를 선택해 OCR 결과를 확인합니다.'
-  },
-  {
-    id: 'dataset',
-    label: 'Dataset',
-    title: '캡처 데이터를 나누고, 확정하세요.',
-    description: '같은 캡처의 이미지를 함께 배정하고, 검사 후 학습용 데이터를 내보냅니다.'
-  },
-  {
-    id: 'comparison',
-    label: '결과 비교',
-    title: '두 평가 결과의 차이를 확인하세요.',
-    description: '저장된 보고서의 지표와 샘플별 예측을 나란히 비교합니다.'
-  },
-  {
-    id: 'charset',
-    label: '문자 검사',
-    title: '정답에 쓰인 문자가 사전에 있는지 확인하세요.',
-    description: '학습 결과의 문자 사전과 정답 파일을 읽어 누락된 문자를 확인합니다.'
-  }
+  { id: 'evaluation', label: '평가' },
+  { id: 'dataset', label: 'Dataset' },
+  { id: 'comparison', label: '결과 비교' },
+  { id: 'charset', label: '문자 검사' }
 ] as const
 
 type WorkspaceTab = (typeof tabs)[number]['id']
@@ -39,7 +19,6 @@ export function EvaluationPage(): React.JSX.Element {
   const [datasetOpened, setDatasetOpened] = useState(false)
   const [comparisonOpened, setComparisonOpened] = useState(false)
   const [charsetOpened, setCharsetOpened] = useState(false)
-  const currentTab = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
 
   function activateTab(tab: WorkspaceTab): void {
     setActiveTab(tab)
@@ -68,10 +47,6 @@ export function EvaluationPage(): React.JSX.Element {
         </span>
       </header>
       <main>
-        <div className="intro">
-          <h2>{currentTab.title}</h2>
-          <p>{currentTab.description}</p>
-        </div>
         <div className="workspace-tabs" role="tablist" aria-label="작업 선택">
           {tabs.map((tab, index) => (
             <button
@@ -139,9 +114,6 @@ export function EvaluationPage(): React.JSX.Element {
           {charsetOpened && <CharsetWorkspace />}
         </div>
       </main>
-      <footer>
-        REAL DATA. MEASURABLE RESULTS.<span>ldb-ocr evaluation · MVP</span>
-      </footer>
     </div>
   )
 }

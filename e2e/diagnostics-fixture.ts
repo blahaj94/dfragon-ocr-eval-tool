@@ -144,6 +144,14 @@ export async function installDiagnosticsFixture(
       }
       fixture.diagnosticFixture = { calls: [], cancelCount: 0, imageReadCount: 0, finish: () => {} }
       fixture.evaluation = {
+        getSettings: async () => ({
+          ok: true,
+          value: {
+            settings: {},
+            pythons: [{ executable: paths.python, version: '3.12.14', supported: true }]
+          }
+        }),
+        saveSettings: async () => ({ ok: true, value: null }),
         choosePath: async (kind) => ({ ok: true, value: paths[kind] }),
         inspectRun: async () => ({
           ok: true,

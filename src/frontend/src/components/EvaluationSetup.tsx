@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { EvaluationRequest, PathKind } from '../../../shared/contracts'
+import { useEffect, useState } from 'react'
+import type { EvaluationRequest, PathKind, PythonRuntime } from '../../../shared/contracts'
 import { PathField } from './PathField'
 
 const emptyRequest: EvaluationRequest = {
@@ -35,10 +35,108 @@ export function EvaluationSetup({
   onError: (error: string | null) => void
 }): React.JSX.Element {
   const [request, setRequest] = useState(emptyRequest)
+  const [pythons, setPythons] = useState<PythonRuntime[]>([])
   const [checkpoints, setCheckpoints] = useState<string[]>([])
   const [choosing, setChoosing] = useState(false)
-  const disabled = busy || choosing || !connected
-  const complete = Object.values(request).every((value) => value.length > 0)
+  const [initializing, setInitializing] = useState(window.evaluation != null)
+  const disabled = busy || choosing || initializing || !connected
+  const selectedPython = pythons.find((python) => python.executable === request.pythonExecutable)
+  const complete =
+    Object.values(request).every((value) => value.length > 0) && selectedPython?.supported === true
+
+  useEffect(() => {
+    if (window.evaluation == null) {
+      return
+    }
+    let active = true
+    async function restore(): Promise<void> {
+      try {
+        const saved = await window.evaluation.getSettings()
+        if (!active) {
+          return
+        }
+        if (!saved.ok) {
+          onError(saved.error)
+          return
+        }
+        setPythons(saved.value.pythons)
+        const next = { ...emptyRequest, ...saved.value.settings }
+        if (next.runDirectory) {
+          const inspection = await window.evaluation.inspectRun(next.runDirectory)
+          if (!active) {
+            return
+          }
+          if (inspection.ok) {
+            setCheckpoints(inspection.value.checkpoints)
+            if (
+              next.checkpointPath &&
+              !inspection.value.checkpoints.includes(next.checkpointPath)
+            ) {
+              next.checkpointPath = ''
+              onError('저장된 체크포인트를 찾지 못했습니다. 다시 선택하세요.')
+            }
+          } else {
+            next.checkpointPath = ''
+            onError(inspection.error)
+          }
+        }
+        setRequest(next)
+      } catch {
+        if (active) {
+          onError('저장된 평가 설정을 읽지 못했습니다.')
+        }
+      } finally {
+        if (active) {
+          setInitializing(false)
+        }
+      }
+    }
+    void restore()
+    return () => {
+      active = false
+    }
+  }, [onError])
+
+  async function save(next: EvaluationRequest): Promise<void> {
+    const result = await window.evaluation.saveSettings(next)
+    if (!result.ok) {
+      throw new Error(`평가 설정을 저장하지 못했습니다. ${result.error}`)
+    }
+  }
+
+  async function selectCheckpoint(path: string): Promise<void> {
+    if (disabled) {
+      return
+    }
+    setChoosing(true)
+    onError(null)
+    const next = { ...request, checkpointPath: path }
+    try {
+      await save(next)
+      setRequest(next)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '평가 설정을 저장하지 못했습니다.')
+    } finally {
+      setChoosing(false)
+    }
+  }
+
+  async function selectPython(path: string): Promise<void> {
+    if (disabled) {
+      return
+    }
+    setChoosing(true)
+    onError(null)
+    try {
+      const next = { ...request, pythonExecutable: path }
+      await save(next)
+      setRequest(next)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '평가 설정을 저장하지 못했습니다.')
+    } finally {
+      setChoosing(false)
+    }
+  }
 
   async function choosePath(kind: PathKind): Promise<void> {
     if (disabled) {
@@ -59,11 +157,23 @@ export function EvaluationSetup({
 
       const selectedPath = result.value
       if (kind !== 'run') {
-        setRequest((current) => ({ ...current, [requestFields[kind]]: selectedPath }))
+        const next = { ...request, [requestFields[kind]]: selectedPath }
+        await save(next)
+        setRequest(next)
+        if (kind === 'python') {
+          const refreshed = await window.evaluation.getSettings()
+          if (!refreshed.ok) {
+            onError(refreshed.error)
+          } else {
+            setPythons(refreshed.value.pythons)
+          }
+        }
         return
       }
 
-      setRequest((current) => ({ ...current, runDirectory: selectedPath, checkpointPath: '' }))
+      const next = { ...request, runDirectory: selectedPath, checkpointPath: '' }
+      await save(next)
+      setRequest(next)
       setCheckpoints([])
       const inspection = await window.evaluation.inspectRun(selectedPath)
       if (!inspection.ok) {
@@ -75,8 +185,8 @@ export function EvaluationSetup({
       if (inspection.value.checkpoints.length === 0) {
         onError('이 학습 결과 폴더에서 지원하는 체크포인트를 찾지 못했습니다.')
       }
-    } catch {
-      onError('경로를 읽지 못했습니다. 파일과 폴더에 접근할 수 있는지 확인해 주세요.')
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '경로를 읽거나 설정을 저장하지 못했습니다.')
     } finally {
       setChoosing(false)
     }
@@ -105,14 +215,47 @@ export function EvaluationSetup({
         <legend>
           <span className="step-number">01</span>실행 환경
         </legend>
-        <PathField
-          id="python-path"
-          label="Python 실행 파일"
-          value={request.pythonExecutable}
-          placeholder="Paddle GPU 환경의 python.exe"
-          disabled={disabled}
-          onChoose={() => void choosePath('python')}
-        />
+        <div className="field">
+          <label htmlFor="python-path">Python 실행 파일</label>
+          <div className="path-control">
+            <select
+              id="python-path"
+              value={request.pythonExecutable}
+              disabled={disabled}
+              title={request.pythonExecutable}
+              onChange={(event) => void selectPython(event.target.value)}
+            >
+              <option value="">
+                {initializing ? '설치된 Python 확인 중…' : 'Python 버전 선택'}
+              </option>
+              {request.pythonExecutable && !selectedPython && (
+                <option value={request.pythonExecutable} disabled>
+                  확인 불가 · {request.pythonExecutable}
+                </option>
+              )}
+              {pythons.map((python) => (
+                <option
+                  key={python.executable}
+                  value={python.executable}
+                  disabled={!python.supported}
+                >
+                  Python {python.version}
+                  {python.supported ? '' : ' · 미지원'} — {python.executable}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={disabled}
+              aria-label="Python 실행 파일 선택"
+              onClick={() => void choosePath('python')}
+            >
+              찾아보기
+            </button>
+          </div>
+          <p className="field-help">Python 3.12 지원 · 목록에 없는 가상환경은 찾아보기로 추가</p>
+        </div>
         <PathField
           id="source-path"
           label="ldb-ocr 소스 폴더"
@@ -142,9 +285,7 @@ export function EvaluationSetup({
             id="checkpoint"
             value={request.checkpointPath}
             disabled={disabled || checkpoints.length === 0}
-            onChange={(event) =>
-              setRequest((current) => ({ ...current, checkpointPath: event.target.value }))
-            }
+            onChange={(event) => void selectCheckpoint(event.target.value)}
           >
             <option value="">
               {request.runDirectory.length === 0
@@ -203,7 +344,13 @@ export function EvaluationSetup({
         className="button button-primary start-button"
         disabled={disabled || !complete}
       >
-        {busy ? busyLabel : choosing ? '파일 확인 중…' : '평가 시작'}
+        {busy
+          ? busyLabel
+          : initializing
+            ? '설정 불러오는 중…'
+            : choosing
+              ? '파일 확인 중…'
+              : '평가 시작'}
         <span aria-hidden="true">→</span>
       </button>
       {!complete && (

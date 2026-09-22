@@ -11,6 +11,19 @@ export interface EvaluationRequest {
   outputDirectory: string
 }
 
+export type EvaluationSettings = Partial<EvaluationRequest>
+
+export interface PythonRuntime {
+  executable: string
+  version: string
+  supported: boolean
+}
+
+export interface EvaluationPreferences {
+  settings: EvaluationSettings
+  pythons: PythonRuntime[]
+}
+
 export interface EvaluationSample {
   id: string
   imagePath: string
@@ -50,6 +63,8 @@ export interface EvaluationSnapshot {
 }
 
 export interface EvaluationApi {
+  getSettings(): Promise<Result<EvaluationPreferences>>
+  saveSettings(settings: EvaluationSettings): Promise<Result<null>>
   choosePath(kind: PathKind): Promise<Result<string | null>>
   inspectRun(runDirectory: string): Promise<Result<{ checkpoints: string[] }>>
   start(request: EvaluationRequest): Promise<Result<null>>
@@ -61,6 +76,8 @@ export interface EvaluationApi {
 }
 
 export const IPC = {
+  getSettings: 'evaluation:get-settings',
+  saveSettings: 'evaluation:save-settings',
   choosePath: 'evaluation:choose-path',
   inspectRun: 'evaluation:inspect-run',
   start: 'evaluation:start',

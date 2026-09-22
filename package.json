@@ -1,6 +1,6 @@
 {
   "name": "dfragon-ocr-eval-tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Local evaluation of ldb-ocr checkpoints against labeled Cropper ROIs",
   "main": "out/backend/main.js",

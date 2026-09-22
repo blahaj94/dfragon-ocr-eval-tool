@@ -99,20 +99,11 @@ h1 {
   height: 5px;
   border-radius: 50%;
 }
-.intro {
-  padding: 31px 0 25px;
-}
 h2 {
   font-size: 25px;
   letter-spacing: -0.75px;
   margin: 0 0 10px;
   font-weight: 650;
-}
-.intro p {
-  margin: 0;
-  font-size: 13px;
-  color: #697970;
-  line-height: 1.6;
 }
 .workspace {
   display: grid;
@@ -195,6 +186,10 @@ legend + * {
 .path-control {
   display: flex;
   gap: 6px;
+}
+.path-control select {
+  flex: 1;
+  width: 0;
 }
 input,
 select {
@@ -668,18 +663,6 @@ tr:last-child td {
   line-height: 1.6;
   color: #889b85;
   margin-top: 7px;
-}
-footer {
-  padding: 30px 0 25px;
-  margin-top: 13px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 9px;
-  letter-spacing: 1.2px;
-  color: #a5afa3;
-}
-footer span {
-  letter-spacing: 0;
 }
 .workspace-tabs {
   display: flex;

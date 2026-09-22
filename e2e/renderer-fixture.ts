@@ -7,7 +7,14 @@ import type {
   PathKind
 } from '../src/shared/contracts'
 
-export type FixtureMode = 'completed' | 'running' | 'start-error' | 'stale-initial'
+export type FixtureMode =
+  | 'completed'
+  | 'running'
+  | 'start-error'
+  | 'stale-initial'
+  | 'settings-save-error'
+  | 'settings-read-error'
+  | 'missing-checkpoint'
 
 interface FixtureWindow extends Window {
   evaluation: EvaluationApi
@@ -101,6 +108,38 @@ export async function installRendererFixture(page: Page, mode: FixtureMode): Pro
       }
 
       fixtureWindow.evaluation = {
+        getSettings: async () =>
+          mode === 'settings-read-error'
+            ? { ok: false, error: 'Fixture: 설정 파일을 읽지 못했습니다.' }
+            : {
+                ok: true,
+                value: {
+                  settings:
+                    mode === 'missing-checkpoint'
+                      ? {
+                          runDirectory: paths.run,
+                          checkpointPath: 'C:\\fixture\\run\\deleted.pdparams'
+                        }
+                      : {},
+                  pythons: [
+                    { executable: paths.python, version: '3.12.14', supported: true },
+                    {
+                      executable: 'C:\\fixture\\Python313\\python.exe',
+                      version: '3.13.7',
+                      supported: false
+                    },
+                    {
+                      executable: 'C:\\fixture\\gpu-env\\python.exe',
+                      version: '3.12.10',
+                      supported: true
+                    }
+                  ]
+                }
+              },
+        saveSettings: async () =>
+          mode === 'settings-save-error'
+            ? { ok: false, error: 'Fixture: 디스크 저장 실패' }
+            : { ok: true, value: null },
         choosePath: async (kind) => ({ ok: true, value: paths[kind] }),
         inspectRun: async () => ({
           ok: true,

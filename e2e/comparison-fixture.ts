@@ -174,6 +174,14 @@ export async function installComparisonFixture(page: Page, emptyRegression = fal
         output: 'C:\\fixture\\output'
       }
       fixtureWindow.evaluation = {
+        getSettings: async () => ({
+          ok: true,
+          value: {
+            settings: {},
+            pythons: [{ executable: paths.python, version: '3.12.14', supported: true }]
+          }
+        }),
+        saveSettings: async () => ({ ok: true, value: null }),
         choosePath: async (kind) => ({ ok: true, value: paths[kind] }),
         inspectRun: async () => ({
           ok: true,
