@@ -6,6 +6,10 @@ import { EvaluationRunner } from './evaluation/runner'
 import { registerEvaluationIpc } from './ipc'
 import { DatasetService } from './dataset/service'
 import { registerDatasetIpc } from './dataset-ipc'
+import { ComparisonService } from './comparison/service'
+import { registerComparisonIpc } from './comparison-ipc'
+import { CharsetService } from './charset/service'
+import { registerCharsetIpc } from './charset-ipc'
 import { validateDevelopmentUrl } from './window-security'
 
 let window: BrowserWindow | null = null
@@ -83,6 +87,8 @@ if (!app.requestSingleInstanceLock()) {
         }
       })
       registerEvaluationIpc(window, documentUrl, runner)
+      registerComparisonIpc(window, documentUrl, new ComparisonService())
+      registerCharsetIpc(window, documentUrl, new CharsetService())
       registerDatasetIpc(
         window,
         documentUrl,

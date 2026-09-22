@@ -1,0 +1,5 @@
+Global:
+  character_dict_path: 'C:\fixture\trained-run\characters.txt'
+  use_space_char: true
+PostProcess:
+  name: CTCLabelDecode

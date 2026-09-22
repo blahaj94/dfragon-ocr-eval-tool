@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type EvaluationApi, type EvaluationSnapshot, type Result } from '../shared/contracts'
 import { DATASET_IPC, type DatasetApi } from '../shared/dataset'
+import { COMPARISON_IPC, type ComparisonApi } from '../shared/comparison'
+import { CHARSET_IPC, type CharsetApi } from '../shared/charset'
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, ...args) as Promise<Result<T>>
@@ -36,3 +38,17 @@ const dataset: DatasetApi = {
 }
 
 contextBridge.exposeInMainWorld('dataset', dataset)
+
+const comparison: ComparisonApi = {
+  chooseReport: () => invoke(COMPARISON_IPC.chooseReport),
+  compare: (a, b) => invoke(COMPARISON_IPC.compare, a, b),
+  readImage: (path) => invoke(COMPARISON_IPC.readImage, path)
+}
+
+contextBridge.exposeInMainWorld('comparison', comparison)
+
+const charset: CharsetApi = {
+  inspect: (runDirectory, labelsPath) => invoke(CHARSET_IPC.inspect, runDirectory, labelsPath)
+}
+
+contextBridge.exposeInMainWorld('charset', charset)

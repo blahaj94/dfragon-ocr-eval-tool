@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "run": "C:\\fixture\\trained-run",
+  "dictionary": "C:\\fixture\\trained-run\\characters.txt",
+  "dictionarySha256": "1dd9194359fcb8341548df31fe5876b9fae60360a255c72d72ed93367c2f84a7",
+  "model": "v5-korean",
+  "modelName": "korean_PP-OCRv5_mobile_rec",
+  "profile": "korean",
+  "imageStage": "raw-nickname-crop",
+  "useSpace": true
+}

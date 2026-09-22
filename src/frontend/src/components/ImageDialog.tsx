@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react'
 import type { EvaluationSample } from '../../../shared/contracts'
-import { SampleImage } from './SampleImage'
+import { SampleImage, type ImageReader } from './SampleImage'
 
 export function ImageDialog({
   sample,
-  onClose
+  onClose,
+  readImage,
+  comparisonSample
 }: {
   sample: EvaluationSample
   onClose: () => void
+  readImage?: ImageReader
+  comparisonSample?: EvaluationSample
 }): React.JSX.Element {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -41,10 +45,17 @@ export function ImageDialog({
         </div>
         <p className="image-path">{sample.imagePath}</p>
         <div className="image-stage">
-          <SampleImage imagePath={sample.imagePath} label={`${sample.id} ROI 확대`} enlarged />
+          <SampleImage
+            imagePath={sample.imagePath}
+            label={`${sample.id} ROI 확대`}
+            enlarged
+            readImage={readImage}
+          />
         </div>
-        <dl className="image-comparison">
-          <div>
+        <dl
+          className={`image-comparison ${comparisonSample == null ? '' : 'comparison-image-details'}`}
+        >
+          <div className={comparisonSample == null ? undefined : 'comparison-image-truth'}>
             <dt>정답</dt>
             <dd>
               {sample.truth.length === 0 ? (
@@ -54,8 +65,11 @@ export function ImageDialog({
               )}
             </dd>
           </div>
-          <div>
-            <dt>예측</dt>
+          <div
+            role={comparisonSample == null ? undefined : 'group'}
+            aria-label={comparisonSample == null ? undefined : 'A 결과'}
+          >
+            <dt>{comparisonSample == null ? '예측' : 'A 예측'}</dt>
             <dd>
               {sample.prediction.length === 0 ? (
                 <span className="empty-value">빈 예측</span>
@@ -63,7 +77,27 @@ export function ImageDialog({
                 sample.prediction
               )}
             </dd>
+            {comparisonSample != null && (
+              <dd className="comparison-image-distance">
+                편집거리 <strong>{sample.editDistance}</strong>
+              </dd>
+            )}
           </div>
+          {comparisonSample != null && (
+            <div role="group" aria-label="B 결과">
+              <dt>B 예측</dt>
+              <dd>
+                {comparisonSample.prediction.length === 0 ? (
+                  <span className="empty-value">빈 예측</span>
+                ) : (
+                  comparisonSample.prediction
+                )}
+              </dd>
+              <dd className="comparison-image-distance">
+                편집거리 <strong>{comparisonSample.editDistance}</strong>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </dialog>

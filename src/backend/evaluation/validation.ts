@@ -41,12 +41,15 @@ export function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-export function isSample(value: unknown): value is EvaluationSample {
+export function isSample(
+  value: unknown,
+  isImagePath: (path: string) => boolean = isAbsolute
+): value is EvaluationSample {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.imagePath === 'string' &&
-    isAbsolute(value.imagePath) &&
+    isImagePath(value.imagePath) &&
     typeof value.truth === 'string' &&
     typeof value.prediction === 'string' &&
     isCount(value.editDistance) &&
@@ -70,7 +73,10 @@ function isMetrics(value: unknown): value is Metrics {
   )
 }
 
-export function isReport(value: unknown): value is EvaluationReport {
+export function isReport(
+  value: unknown,
+  isImagePath: (path: string) => boolean = isAbsolute
+): value is EvaluationReport {
   if (
     !isRecord(value) ||
     !['completed', 'cancelled', 'failed'].includes(String(value.status)) ||
@@ -78,7 +84,7 @@ export function isReport(value: unknown): value is EvaluationReport {
     !isCount(value.processedSamples) ||
     value.processedSamples > value.totalSamples ||
     !Array.isArray(value.samples) ||
-    !value.samples.every(isSample) ||
+    !value.samples.every((sample) => isSample(sample, isImagePath)) ||
     value.samples.length !== value.processedSamples ||
     !(value.error === null || typeof value.error === 'string') ||
     typeof value.startedAt !== 'string' ||

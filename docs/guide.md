@@ -6,7 +6,13 @@ Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI�
 
 **Dataset** 탭에서는 캡처 이벤트를 train / val / test에 직접 배정하고 검사·확정한 목록을 저장합니다. [Dataset 사용 안내](dataset.md)를 참고하세요.
 
+**결과 비교** 탭에서는 완료된 `report.json` 두 개의 성적과 샘플별 차이를 봅니다. 모델이나 GPU를 실행하지 않습니다. [결과 비교 사용 안내](comparison.md)를 참고하세요.
+
+**문자 검사** 탭에서는 학습 설정·문자 사전과 `labels.json`만으로 문자 빈도·포함률·누락을 확인합니다. 이미지·가중치·Python이 필요하지 않습니다. [문자 검사 사용 안내](charset.md)를 참고하세요.
+
 ## 실행 준비
+
+아래 GPU·Python·소스 요건은 **평가 실행**에 해당합니다. 결과 비교와 문자 검사는 Node.js·pnpm으로 앱을 실행한 뒤 각 화면에 필요한 입력 파일만 선택하면 됩니다.
 
 - Node.js 24와 pnpm 11.23.0. 기록된 PaddleOCR revision 검증을 위해 PATH에서 실행 가능한 Git도 필요합니다.
 - Python 3.12와 해당 체크포인트의 추론이 가능한 기존 Windows GPU/Paddle 환경. 확인한 학습 환경은 `paddlepaddle-gpu==3.2.2`, `numpy==2.2.6` 및 ldb-ocr의 Pillow·PyYAML·PaddleOCR 의존성을 사용합니다.
@@ -101,9 +107,13 @@ pnpm build
 
 Python 개발 검사는 uv와 Python 3.12를 사용하며 `python/uv.lock`에 고정된 pytest·Ruff를 별도 개발 환경에서 실행합니다. `pnpm test:python`의 실제 명령은 `uv run --project python --group dev pytest -q python/tests`입니다. 이 환경에는 Paddle/GPU 패키지를 설치하지 않습니다. 앱에서 선택하는 기존 GPU 추론 환경과 구분하세요.
 
-평가 및 Dataset 검증에서 lint·format·typecheck·build, Vitest 20개, pytest 42개, Playwright 12개를 통과했습니다. Windows Electron에서도 앱 시작과 sandboxed preload, 실제 Python worker 실행 및 잘못된 입력의 실패 보고서 저장, 허용되지 않은 이미지 읽기 거절을 확인했습니다.
+결과 비교·문자 검사 추가 후 lint·format·typecheck·build, Vitest 79개, Playwright 22개를 통과했습니다. 기존 평가·Dataset 흐름을 포함하며 실제 Electron IPC로 두 기능을 검증했습니다. 평가 및 Dataset 도입 시 Python 테스트 42개도 통과했으며, 이번 변경에서 Python 소스는 수정하지 않았습니다.
 
-Windows의 기존 GPU 환경에서 사용자 체크포인트를 실제 로드하고 기존 검증 PNG 2개를 순차 추론하는 adapter 연결 검사를 통과했습니다. 이어 합성 예제 이미지 3개와 Cropper 형식 metadata·라벨로 실제 Electron 앱의 입력 선택 → GPU 추론 → 결과 확인 → 보고서 저장 → 이미지 확대까지 확인했습니다. README의 스크린샷은 이 실행을 Playwright로 직접 캡처한 것이며 예측값이나 화면을 조작하지 않았습니다. 작은 글꼴로 만든 예제의 수치는 사용법 시연용이며 모델 성능을 판단하는 벤치마크가 아닙니다.
+Windows Electron에서도 앱 시작과 sandboxed preload, 실제 Python worker 실행 및 잘못된 입력의 실패 보고서 저장, 허용되지 않은 이미지 읽기 거절을 확인했습니다. 결과 비교는 고정 보고서로 네 그룹·배열 순서 독립 대조·이미지 확대·입력 불일치 거부를 확인했고 원본 바이트가 유지됐습니다.
+
+문자 검사는 Windows 실제 앱에서 텍스트 파일 4개만 있는 예제 폴더로 고유 문자 7개·포함 5개·누락 2개와 공백·U+200B·이모지 표시를 확인했습니다. 사용자의 실제 학습 폴더에도 합성 정답 목록을 대조해 설정·사전 읽기 연결을 확인했으며, 원본 설정·사전 해시는 변경되지 않았습니다. 문자 검사 스크린샷은 고정 예제이며 가중치·이미지·Python·GPU를 사용하지 않았습니다.
+
+Windows의 기존 GPU 환경에서 사용자 체크포인트를 실제 로드하고 기존 검증 PNG 2개를 순차 추론하는 adapter 연결 검사를 통과했습니다. 이어 합성 예제 이미지 3개와 Cropper 형식 metadata·라벨로 실제 Electron 앱의 입력 선택 → GPU 추론 → 결과 확인 → 보고서 저장 → 이미지 확대까지 확인했습니다. README의 평가 스크린샷은 이 실행을 Playwright로 직접 캡처한 것이며 예측값이나 화면을 조작하지 않았습니다. 결과 비교 스크린샷은 별도의 고정 예제 보고서를 실제 앱에서 연 것입니다. 작은 예제의 수치는 사용법 시연용이며 모델 성능을 판단하는 벤치마크가 아닙니다.
 
 Windows 검증 중 발견한 NumPy 초기화 멈춤은 표준 입력을 읽는 별도 스레드를 제거하고 실행별 임시 취소 파일을 확인하도록 수정해 해결했습니다. 기존 모델 로딩·전처리·디코딩은 변경하지 않았습니다.
 
@@ -115,5 +125,7 @@ Windows 검증 중 발견한 NumPy 초기화 멈춤은 표준 입력을 읽는 �
 - Cropper `7ece8bd8f605393febea4e849608f25664dc8bd8`의 [캡처 저장](https://github.com/blahaj94/dfragon-cropper/blob/7ece8bd8f605393febea4e849608f25664dc8bd8/src/main/capture/index.ts), [metadata 검증](https://github.com/blahaj94/dfragon-cropper/blob/7ece8bd8f605393febea4e849608f25664dc8bd8/src/main/capture/history/metadata.ts), [IPC 보안](https://github.com/blahaj94/dfragon-cropper/blob/7ece8bd8f605393febea4e849608f25664dc8bd8/src/main/window-security.ts), [Playwright 검증](https://github.com/blahaj94/dfragon-cropper/blob/7ece8bd8f605393febea4e849608f25664dc8bd8/tests/ui/history-preview.spec.ts): 실제 캡처 계약, 제한된 로컬 파일 접근, 독립 fixture 검증을 참고했습니다.
 
 별도 소형 앱에 필요한 범위만 적용했습니다. LDB의 monorepo UI 패키지 대신 React와 일반 CSS를 사용하고, ldb-ocr의 모델 로딩·전처리·디코딩·평가 코드는 복제하지 않고 선택한 소스에서 불러옵니다.
+
+결과 비교는 기존 보고서 검증 함수와 이미지·확대 컴포넌트를 재사용합니다. 문자 검사는 기존 Python 라벨 검증이 PNG까지 읽기 때문에 텍스트 구조 규칙만 Node에서 적용하며, 실제 ldb-ocr 사전 reader·CTC 클래스와 공백 설정 해석을 따릅니다. YAML 설정은 표준 파서로 읽고 추론 로더·평가 계산은 변경하지 않았습니다.
 
 ldb-ocr 소스 스냅샷의 주요 재사용 지점은 `training/checkpoint.py`의 `load_trained_checkpoint`, `training/preprocessing.py`의 `tensor_from_png`, `training/evaluation.py`의 `character_classes`·`decode_output`, `recognition/metrics.py`의 `recognition_metrics`, `recognition/distance.py`의 `edit_distance`입니다. 경로와 해시는 로컬 보고서에 남으며 모델 파일이나 실제 이미지를 보고서 폴더로 복사하지 않습니다.

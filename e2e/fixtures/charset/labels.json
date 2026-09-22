@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "samples": [
+    {
+      "id": "first",
+      "image": "20260922-120000-1234abcd/001.png",
+      "truth": "가가 A😀​"
+    },
+    {
+      "id": "second",
+      "image": "20260922-120000-1234abcd/002.png",
+      "truth": "가1!"
+    }
+  ]
+}

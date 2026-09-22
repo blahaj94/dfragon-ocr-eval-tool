@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "status": "completed",
+  "totalSamples": 4,
+  "processedSamples": 4,
+  "summary": {
+    "cer": 0.2,
+    "exactMatch": 0.5,
+    "sampleCount": 4,
+    "characterCount": 10,
+    "exactMatchCount": 2,
+    "editDistance": 2
+  },
+  "partialSummary": null,
+  "samples": [
+    {
+      "id": "both-correct",
+      "imagePath": "/fixture/captures/both-correct.png",
+      "truth": " a ",
+      "prediction": " a ",
+      "editDistance": 0,
+      "confidence": null,
+      "imageSha256": "61cd65b70ca9353f9624455de848015ef9d318cf8ae8c5a296c5bcde6012c0c9",
+      "metadataSha256": "d12502f1d13f094954baca2ee2887194f5c263247f8eb092288a433a15aa91ca"
+    },
+    {
+      "id": "regressed",
+      "imagePath": "/fixture/captures/regressed.png",
+      "truth": "검신",
+      "prediction": "검심",
+      "editDistance": 1,
+      "confidence": null,
+      "imageSha256": "61cd65b70ca9353f9624455de848015ef9d318cf8ae8c5a296c5bcde6012c0c9",
+      "metadataSha256": "d12502f1d13f094954baca2ee2887194f5c263247f8eb092288a433a15aa91ca"
+    },
+    {
+      "id": "both-wrong",
+      "imagePath": "/fixture/captures/both-wrong.png",
+      "truth": "영웅",
+      "prediction": "영유",
+      "editDistance": 1,
+      "confidence": null,
+      "imageSha256": "61cd65b70ca9353f9624455de848015ef9d318cf8ae8c5a296c5bcde6012c0c9",
+      "metadataSha256": "d12502f1d13f094954baca2ee2887194f5c263247f8eb092288a433a15aa91ca"
+    },
+    {
+      "id": "improved",
+      "imagePath": "/fixture/captures/improved.png",
+      "truth": "나이트",
+      "prediction": "나이트",
+      "editDistance": 0,
+      "confidence": null,
+      "imageSha256": "61cd65b70ca9353f9624455de848015ef9d318cf8ae8c5a296c5bcde6012c0c9",
+      "metadataSha256": "d12502f1d13f094954baca2ee2887194f5c263247f8eb092288a433a15aa91ca"
+    }
+  ],
+  "error": null,
+  "startedAt": "2026-01-01T00:00:00+00:00",
+  "finishedAt": "2026-01-01T00:00:01+00:00",
+  "reproducibility": {
+    "settings": {
+      "runDirectory": "/fixture/model-b",
+      "checkpointPath": "/fixture/model-b/checkpoints/latest.pdparams",
+      "datasetDirectory": "/fixture/captures",
+      "labelsPath": "/fixture/labels.json",
+      "outputDirectory": "/fixture/reports/b",
+      "ldbOcrSourcePath": "/fixture/source-b"
+    },
+    "normalization": "none",
+    "batchSize": 1,
+    "labelsSha256": "e839e3e25b16841671b961961f54292a758cd26da159d6b22ff4e6126e77b5d3",
+    "python": "3.12.0",
+    "paddle": "3.2.2",
+    "numpy": "2.2.6",
+    "device": "gpu:0",
+    "gpu": "SYNTHETIC TEST FIXTURE (no inference)",
+    "cuda": "12.6",
+    "precision": "float32; NVIDIA_TF32_OVERRIDE=0",
+    "sourcePath": "/fixture/source-b",
+    "sourceSha256": {
+      "training/runtime.py": "1111111111111111111111111111111111111111111111111111111111111111",
+      "training/checkpoint.py": "2222222222222222222222222222222222222222222222222222222222222222",
+      "training/pooling.py": "3333333333333333333333333333333333333333333333333333333333333333",
+      "training/preprocessing.py": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "training/evaluation.py": "5555555555555555555555555555555555555555555555555555555555555555",
+      "recognition/ctc.py": "6666666666666666666666666666666666666666666666666666666666666666",
+      "recognition/metrics.py": "7777777777777777777777777777777777777777777777777777777777777777",
+      "recognition/distance.py": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    "upstreamRevision": "0000000000000000000000000000000000000000",
+    "checkpointSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "dictionarySha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "configSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "requestSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "trainingReportSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "preprocessing": "synthetic-test-preprocessing-b",
+    "poolingPolicy": "synthetic-test-pooling-b",
+    "confidence": "unavailable: existing decoder returns text only; no filtering"
+  }
+}
