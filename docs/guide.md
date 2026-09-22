@@ -78,7 +78,7 @@ pnpm package:win
 
 ## 라벨과 캡처 형식
 
-`labels.json`은 이 도구에서 정의한 명시적인 정답 목록입니다. Cropper가 자동 생성하는 파일이 아니며, 앱에서는 라벨을 편집하지 않습니다. [예제 라벨](../examples/labels.json)은 형식 설명용 가상 데이터입니다.
+`labels.json`은 이 도구에서 정의한 명시적인 정답 목록입니다. Cropper의 **Ground Truth** 탭에서 저장한 정답은 [transfer로 변환](transfer.md)할 수 있습니다. 평가 앱에서는 라벨을 편집하지 않습니다. [예제 라벨](../examples/labels.json)은 형식 설명용 가상 데이터입니다.
 
 ```json
 {

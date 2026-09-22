@@ -18,6 +18,8 @@
 
 ## 01. 모델과 데이터 선택
 
+Cropper에서 정답을 작성했다면 [transfer로 labels.json 생성](docs/transfer.md).
+
 <p align="center">
   <img src="docs/screenshots/setup.png" width="352" alt="실제 앱에서 Python, 학습 결과, 체크포인트, Cropper 캡처와 정답 파일을 선택한 화면" />
 </p>
