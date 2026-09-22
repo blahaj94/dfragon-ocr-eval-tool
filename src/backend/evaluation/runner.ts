@@ -1,4 +1,5 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, extname, isAbsolute, join, relative, sep } from 'node:path'
@@ -25,7 +26,7 @@ export function isInside(parent: string, child: string): boolean {
 
 export class EvaluationRunner {
   private snapshot = emptySnapshot()
-  private child: ChildProcessWithoutNullStreams | null = null
+  private cancelFile: string | null = null
   private busy = false
   private cancelRequested = false
   private imagePaths = new Set<string>()
@@ -56,6 +57,7 @@ export class EvaluationRunner {
     const request = parseRequest(input)
     this.busy = true
     this.cancelRequested = false
+    this.cancelFile = null
     this.imagePaths.clear()
     this.datasetRoot = null
     this.outputRoot = null
@@ -87,21 +89,28 @@ export class EvaluationRunner {
       this.datasetRoot = await realpath(request.datasetDirectory)
       this.outputRoot = await realpath(request.outputDirectory)
       temporaryDirectory = await mkdtemp(join(tmpdir(), 'ocr-evaluation-'))
+      this.cancelFile = join(temporaryDirectory, 'cancel')
       const requestPath = join(temporaryDirectory, 'request.json')
       const { pythonExecutable, ...workerRequest } = request
       await writeFile(requestPath, JSON.stringify(workerRequest), { flag: 'wx', mode: 0o600 })
-      const child = spawn(pythonExecutable, ['-u', this.workerPath, '--request', requestPath], {
-        windowsHide: true,
-        shell: false,
-        env: {
-          ...process.env,
-          PYTHONUNBUFFERED: '1',
-          PYTHONDONTWRITEBYTECODE: '1',
-          PYTHONIOENCODING: 'utf-8'
-        },
-        stdio: ['pipe', 'pipe', 'pipe']
-      })
-      this.child = child
+      if (this.cancelRequested) {
+        this.signalCancellation()
+      }
+      const child = spawn(
+        pythonExecutable,
+        ['-u', this.workerPath, '--request', requestPath, '--cancel-file', this.cancelFile],
+        {
+          windowsHide: true,
+          shell: false,
+          env: {
+            ...process.env,
+            PYTHONUNBUFFERED: '1',
+            PYTHONDONTWRITEBYTECODE: '1',
+            PYTHONIOENCODING: 'utf-8'
+          },
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
       let stderr = ''
       let finished = false
       let protocolError: Error | null = null
@@ -110,9 +119,6 @@ export class EvaluationRunner {
       child.stderr.setEncoding('utf8')
       child.stderr.on('data', (text: string) => {
         stderr = (stderr + text).slice(-12000)
-      })
-      child.stdin.on('error', () => {
-        /* close handler reports process failure */
       })
       lines.on('line', (line) => {
         pending = pending.then(async () => {
@@ -182,13 +188,14 @@ export class EvaluationRunner {
           } catch (error) {
             protocolError = error instanceof Error ? error : new Error(String(error))
             this.cancelRequested = true
-            child.stdin.write('{"type":"cancel"}\n')
+            try {
+              this.signalCancellation()
+            } catch (cancelError) {
+              protocolError.message += `; 취소 전달 실패: ${String(cancelError)}`
+            }
           }
         })
       })
-      if (this.cancelRequested) {
-        child.stdin.write('{"type":"cancel"}\n')
-      }
       const ownedTemporaryDirectory = temporaryDirectory
       child.once('error', (error) => {
         protocolError = error
@@ -208,37 +215,56 @@ export class EvaluationRunner {
                 error: detail || `평가 프로세스가 보고서 없이 종료되었습니다 (${code ?? signal}).`
               })
             }
-            this.child = null
-            this.busy = false
-            this.publish(this.getSnapshot())
-            return rm(ownedTemporaryDirectory, { recursive: true, force: true })
           })
           .catch((error: unknown) => {
-            this.child = null
-            this.busy = false
             this.update({ status: 'failed', error: String(error), report: null })
           })
+          .finally(() => this.releaseRun(ownedTemporaryDirectory))
       })
     } catch (error) {
-      this.busy = false
       this.update({
         status: 'failed',
         error: error instanceof Error ? error.message : String(error)
       })
-      if (temporaryDirectory != null) {
-        await rm(temporaryDirectory, { recursive: true, force: true })
-      }
+      await this.releaseRun(temporaryDirectory)
       throw error
     }
   }
 
+  private async releaseRun(temporaryDirectory: string | null): Promise<void> {
+    this.cancelFile = null
+    try {
+      if (temporaryDirectory != null) {
+        await rm(temporaryDirectory, { recursive: true, force: true })
+      }
+    } catch (error) {
+      // Cleanup must not invalidate the saved report or a subsequent evaluation.
+      console.warn('평가 임시 폴더를 정리하지 못했습니다.', error)
+    } finally {
+      this.busy = false
+      this.publish(this.getSnapshot())
+    }
+  }
+
   cancel(): void {
-    if (!this.busy) {
+    if (!this.busy || ['completed', 'cancelled', 'failed'].includes(this.snapshot.status)) {
       return
     }
+    try {
+      this.signalCancellation()
+    } catch (error) {
+      const message = `취소 요청을 전달하지 못했습니다. 평가는 계속 실행 중입니다. 다시 시도하세요. ${error instanceof Error ? error.message : String(error)}`
+      this.update({ error: message })
+      throw new Error(message)
+    }
     this.cancelRequested = true
-    this.update({ status: 'cancelling' })
-    this.child?.stdin.write('{"type":"cancel"}\n')
+    this.update({ status: 'cancelling', error: null })
+  }
+
+  private signalCancellation(): void {
+    if (this.cancelFile != null) {
+      writeFileSync(this.cancelFile, '', { flag: 'a', mode: 0o600 })
+    }
   }
 
   private async allowImage(imagePath: string): Promise<void> {

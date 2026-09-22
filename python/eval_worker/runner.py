@@ -3,11 +3,11 @@
 import hashlib
 import json
 import math
-import threading
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Protocol
 
 from .adapter import LdbOcrAdapter, sha256
 from .dataset import load_samples, read_object
@@ -20,6 +20,10 @@ SETTINGS_KEYS = {
     "outputDirectory",
     "ldbOcrSourcePath",
 }
+
+
+class Cancellation(Protocol):
+    def is_set(self) -> bool: ...
 
 
 def utc_now() -> str:
@@ -38,7 +42,7 @@ def settings_from_file(path: Path) -> dict:
 
 def run_evaluation(
     settings: dict,
-    cancel: threading.Event,
+    cancel: Cancellation,
     emit: Callable[[dict], None],
     adapter_factory: Callable = LdbOcrAdapter,
 ) -> tuple[Path, dict]:

@@ -1,12 +1,11 @@
 import { EvaluationWorkspace } from '../sections/EvaluationWorkspace'
+import dragonIcon from '../../../../resources/icon.png'
 
 export function EvaluationPage(): React.JSX.Element {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand-mark" aria-hidden="true">
-          R<span>_</span>
-        </div>
+        <img className="brand-mark" src={dragonIcon} alt="DFragon 빨간 용 아이콘" />
         <div className="brand-copy">
           <span className="eyebrow">DFRAGON / MODEL EVALUATION</span>
           <h1>Real OCR Evaluation</h1>

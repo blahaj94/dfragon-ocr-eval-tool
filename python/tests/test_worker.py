@@ -274,7 +274,14 @@ def test_cli_outputs_jsonl_and_failure_report_without_loading_gpu(
     request = tmp_path / "request.json"
     request.write_text(json.dumps(fixture), encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, str(Path(__file__).parents[1] / "worker.py"), "--request", str(request)],
+        [
+            sys.executable,
+            str(Path(__file__).parents[1] / "worker.py"),
+            "--request",
+            str(request),
+            "--cancel-file",
+            str(tmp_path / "cancel"),
+        ],
         input="",
         text=True,
         capture_output=True,
@@ -285,3 +292,55 @@ def test_cli_outputs_jsonl_and_failure_report_without_loading_gpu(
     assert [event["type"] for event in events] == ["finished"]
     assert events[0]["report"]["status"] == "failed"
     assert Path(events[0]["reportPath"]).is_file()
+
+
+def test_cli_precancel_exits_with_stdin_pipe_still_open(fixture: dict, tmp_path: Path) -> None:
+    import subprocess
+    import sys
+
+    request = tmp_path / "request.json"
+    request.write_text(json.dumps(fixture), encoding="utf-8")
+    cancel = tmp_path / "cancel"
+    cancel.touch()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(Path(__file__).parents[1] / "worker.py"),
+            "--request",
+            str(request),
+            "--cancel-file",
+            str(cancel),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        process.wait(timeout=10)
+        stdout, stderr = process.communicate()
+        assert process.returncode == 0, stderr
+        report = json.loads(stdout.splitlines()[-1])["report"]
+        assert report["status"] == "cancelled"
+        assert report["processedSamples"] == 0
+        assert report["summary"] is None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+
+
+def test_cancel_file_preserves_partial_results(fixture: dict, tmp_path: Path) -> None:
+    from worker import FileCancellation
+
+    cancel_path = tmp_path / "cancel"
+    signal = FileCancellation(cancel_path)
+
+    def emit(event: dict) -> None:
+        if event["type"] == "progress":
+            cancel_path.touch()
+
+    _, report = run_evaluation(fixture, signal, emit, FakeAdapter)
+    assert report["status"] == "cancelled"
+    assert report["processedSamples"] == 1
+    assert report["summary"] is None

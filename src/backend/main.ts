@@ -10,6 +10,20 @@ let window: BrowserWindow | null = null
 let runner: EvaluationRunner | null = null
 let quitting = false
 
+function cancelBeforeQuit(event: { preventDefault(): void }): void {
+  if (!runner?.isActive()) {
+    return
+  }
+  event.preventDefault()
+  quitting = true
+  try {
+    runner.cancel()
+  } catch {
+    // The runner publishes the cancellation error; keep the window and worker available.
+    quitting = false
+  }
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -26,6 +40,16 @@ if (!app.requestSingleInstanceLock()) {
         callback(false)
       )
       session.defaultSession.setPermissionCheckHandler(() => false)
+      const iconPath = join(
+        app.getAppPath(),
+        'resources',
+        process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+      )
+      if (process.platform === 'win32') {
+        app.setAppUserModelId('com.dfragon.ocr-eval-tool')
+      } else if (process.platform === 'darwin') {
+        app.dock?.setIcon(iconPath)
+      }
       const entry = join(__dirname, '../frontend/index.html')
       const developmentUrl = process.env.ELECTRON_RENDERER_URL
       const documentUrl =
@@ -34,6 +58,7 @@ if (!app.requestSingleInstanceLock()) {
           : pathToFileURL(entry).href
       window = new BrowserWindow({
         title: 'Real OCR Evaluation',
+        icon: iconPath,
         width: 1360,
         height: 920,
         minWidth: 1024,
@@ -59,25 +84,13 @@ if (!app.requestSingleInstanceLock()) {
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
       window.webContents.on('will-navigate', (event) => event.preventDefault())
       window.webContents.on('will-attach-webview', (event) => event.preventDefault())
-      window.on('close', (event) => {
-        if (runner?.isActive()) {
-          event.preventDefault()
-          quitting = true
-          runner.cancel()
-        }
-      })
+      window.on('close', cancelBeforeQuit)
       return window.loadURL(documentUrl)
     })
     .catch((error: unknown) => {
       console.error(error)
       app.quit()
     })
-  app.on('before-quit', (event) => {
-    if (runner?.isActive()) {
-      event.preventDefault()
-      quitting = true
-      runner.cancel()
-    }
-  })
+  app.on('before-quit', cancelBeforeQuit)
   app.on('window-all-closed', () => app.quit())
 }

@@ -57,24 +57,11 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 .brand-mark {
-  color: #fff;
-  background: #163e32;
-  border-radius: 11px;
-  display: grid;
-  place-content: center;
-  width: 47px;
-  height: 47px;
-  position: relative;
-  font-size: 25px;
-  font-weight: 700;
-  letter-spacing: -3px;
-}
-.brand-mark span {
-  color: #a1d0b9;
-  position: absolute;
-  bottom: 8px;
-  right: 9px;
-  font-size: 20px;
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .brand-copy {
   display: grid;
