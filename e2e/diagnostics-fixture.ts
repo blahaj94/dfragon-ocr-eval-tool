@@ -144,6 +144,7 @@ export async function installDiagnosticsFixture(
       }
       fixture.diagnosticFixture = { calls: [], cancelCount: 0, imageReadCount: 0, finish: () => {} }
       fixture.evaluation = {
+        createLabels: async () => ({ ok: true, value: null }),
         getSettings: async () => ({
           ok: true,
           value: {

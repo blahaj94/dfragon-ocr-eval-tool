@@ -5,6 +5,29 @@ import {
   selectEvaluationInputs
 } from './renderer-fixture'
 
+test('a created labels file is not presented as selected when settings persistence fails', async ({
+  page
+}) => {
+  await installRendererFixture(page, 'completed')
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Cropper 캡처 루트 선택' }).click()
+  await page.getByRole('button', { name: '정답 파일 선택', exact: true }).click()
+  const previous = await page.getByLabel('정답 파일', { exact: true }).inputValue()
+  await page.evaluate(() => {
+    window.evaluation.createLabels = async () => ({
+      ok: true,
+      value: { output: 'C:\\fixture\\new-labels.json', events: 1, samples: 2, unanswered: 1 }
+    })
+    window.evaluation.saveSettings = async () => ({ ok: false, error: 'Fixture: 디스크 저장 실패' })
+  })
+  await page.getByRole('button', { name: '정답 목록 만들기', exact: true }).click()
+  await expect(page.getByRole('form', { name: '평가 설정' }).getByRole('status')).toContainText(
+    '정답 2개 저장 · 미작성 1개'
+  )
+  await expect(page.getByRole('alert')).toContainText('평가 설정을 저장하지 못했습니다')
+  await expect(page.getByLabel('정답 파일', { exact: true })).toHaveValue(previous)
+})
+
 test('Python selector shows versions and paths, disables unsupported versions and saves a selected environment', async ({
   page
 }) => {

@@ -6,6 +6,7 @@ import { EvaluationRunner } from './evaluation/runner'
 import { readPath } from './evaluation/validation'
 import { requireSender } from './window-security'
 import type { EvaluationSettingsStore } from './evaluation/settings'
+import type { LabelTransferService } from './evaluation/label-transfer'
 
 const pathKinds: readonly PathKind[] = ['python', 'source', 'run', 'dataset', 'labels', 'output']
 
@@ -13,7 +14,8 @@ export function registerEvaluationIpc(
   window: BrowserWindow,
   documentUrl: string,
   runner: EvaluationRunner,
-  settings: EvaluationSettingsStore
+  settings: EvaluationSettingsStore,
+  transfer: LabelTransferService
 ): void {
   function handle(channel: string, arity: number, handler: (...args: unknown[]) => unknown): void {
     ipcMain.handle(channel, async (event, ...args): Promise<Result<unknown>> => {
@@ -33,6 +35,7 @@ export function registerEvaluationIpc(
   }
 
   handle(IPC.getSettings, 0, () => settings.get())
+  handle(IPC.createLabels, 1, (directory) => transfer.create(directory))
   handle(IPC.saveSettings, 1, async (input) => {
     await settings.save(input)
     return null

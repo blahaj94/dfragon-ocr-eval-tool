@@ -174,6 +174,7 @@ export async function installComparisonFixture(page: Page, emptyRegression = fal
         output: 'C:\\fixture\\output'
       }
       fixtureWindow.evaluation = {
+        createLabels: async () => ({ ok: true, value: null }),
         getSettings: async () => ({
           ok: true,
           value: {

@@ -108,6 +108,7 @@ export async function installRendererFixture(page: Page, mode: FixtureMode): Pro
       }
 
       fixtureWindow.evaluation = {
+        createLabels: async () => ({ ok: true, value: null }),
         getSettings: async () =>
           mode === 'settings-read-error'
             ? { ok: false, error: 'Fixture: 설정 파일을 읽지 못했습니다.' }

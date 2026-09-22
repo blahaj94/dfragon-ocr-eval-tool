@@ -129,6 +129,7 @@ export async function installCharsetFixture(
       }
       let labelsChoices = 0
       fixtureWindow.evaluation = {
+        createLabels: async () => ({ ok: true, value: null }),
         getSettings: async () => ({
           ok: true,
           value: {

@@ -263,6 +263,7 @@ export async function installDatasetFixture(page: Page, mode: FixtureMode): Prom
         run: 'C:\\fixture\\run'
       }
       fixtureWindow.evaluation = {
+        createLabels: async () => ({ ok: true, value: null }),
         getSettings: async () => ({
           ok: true,
           value: {

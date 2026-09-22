@@ -33,6 +33,8 @@ Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI�
 - 학습에 사용한 **ldb-ocr 소스 스냅샷**, 학습 결과 폴더, 체크포인트 및 학습 설정·문자 사전.
 - Cropper 캡처 루트와 아래 형식의 `labels.json`.
 
+`ldb-ocr 소스 폴더`에는 `python/src/ldb_ocr/training/checkpoint.py`가 들어 있는 저장소 최상위 폴더를 선택합니다. Python은 Paddle·NumPy가 설치된 기존 학습 가상환경의 실행 파일을 선택하세요. 일반 Python 설치만으로는 평가 의존성이 준비되지 않습니다.
+
 앱은 GPU 환경을 설치하거나 학습 코드를 내려받지 않습니다. 현재 지원 로더가 포함된 기존 학습 소스 스냅샷을 선택해야 합니다. 확인한 ldb-ocr GitHub main에는 해당 로더가 없으므로 새 clone만으로 실행 준비가 끝나지 않습니다. 소스·가중치·실제 이미지·접속 정보는 이 저장소에 포함하지 않습니다.
 
 학습 결과 폴더에는 `request.json`, `training.json`, `config.yml`, `characters.txt`, `manifest.jsonl`과 `checkpoints/latest.pdparams`가 필요합니다. `training.json`의 `checkpointFiles`에 기록된 파일도 모두 있어야 합니다. 확인한 실행은 `latest.pdopt`, `latest.states`도 요구합니다. 기록된 PaddleOCR 소스와 경로·revision을 그대로 사용하므로 가중치만 복사하거나 학습 폴더를 임의로 옮긴 구성은 지원하지 않습니다.
@@ -64,7 +66,7 @@ pnpm package:win
 
 1. **Python 실행 파일** 목록에서 설치된 버전·경로를 확인하고 Python 3.12 환경을 선택합니다. Windows Python 런처와 PATH에서 찾으며, 목록에 없는 가상환경은 **찾아보기**로 추가합니다. 이어 ldb-ocr 소스 폴더를 선택합니다.
 2. 학습 결과 폴더를 선택하고 지원되는 체크포인트를 선택합니다. 현재 로더 지원 대상은 `checkpoints/latest.pdparams`입니다.
-3. Cropper의 `captures` 루트, `labels.json`, 보고서를 저장할 폴더를 선택합니다.
+3. Cropper의 `captures` 루트와 정답 파일을 선택합니다. Cropper에 정답을 저장해 두었다면 **정답 목록 만들기**로 새 JSON을 만들고 자동 선택할 수 있습니다. 이어 보고서를 저장할 폴더를 선택합니다.
 4. 평가를 시작합니다. 동시에 하나만 실행하며 처리 수를 표시합니다. 취소하면 결과를 완료된 전체 성적으로 표시하지 않습니다.
 5. 기본으로 표시되는 오답 목록에서 이미지·정답·예측·편집거리·모델이 제공하는 confidence를 확인합니다. 전체 보기와 이미지 확대도 지원합니다.
 
@@ -78,7 +80,7 @@ pnpm package:win
 
 ## 라벨과 캡처 형식
 
-`labels.json`은 이 도구에서 정의한 명시적인 정답 목록입니다. Cropper의 **Ground Truth** 탭에서 저장한 정답은 [transfer로 변환](transfer.md)할 수 있습니다. 평가 앱에서는 라벨을 편집하지 않습니다. [예제 라벨](../examples/labels.json)은 형식 설명용 가상 데이터입니다.
+`labels.json`은 이 도구에서 정의한 명시적인 정답 목록입니다. Cropper의 **Ground Truth** 탭에서 저장한 정답은 평가 설정의 [정답 목록 만들기](transfer.md)로 변환할 수 있습니다. 평가 앱에서는 라벨을 편집하지 않습니다. [예제 라벨](../examples/labels.json)은 형식 설명용 가상 데이터입니다.
 
 ```json
 {

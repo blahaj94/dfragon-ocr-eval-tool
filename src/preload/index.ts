@@ -12,6 +12,7 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
 const api: EvaluationApi = {
   getSettings: () => invoke(IPC.getSettings),
   saveSettings: (settings) => invoke(IPC.saveSettings, settings),
+  createLabels: (directory) => invoke(IPC.createLabels, directory),
   choosePath: (kind) => invoke(IPC.choosePath, kind),
   inspectRun: (directory) => invoke(IPC.inspectRun, directory),
   start: (request) => invoke(IPC.start, request),

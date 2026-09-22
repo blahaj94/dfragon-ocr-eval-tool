@@ -1,9 +1,11 @@
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, dialog, session } from 'electron'
+import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { IPC } from '../shared/contracts'
 import { EvaluationRunner } from './evaluation/runner'
 import { EvaluationSettingsStore } from './evaluation/settings'
+import { LabelTransferService } from './evaluation/label-transfer'
 import { registerEvaluationIpc } from './ipc'
 import { DatasetService } from './dataset/service'
 import { registerDatasetIpc } from './dataset-ipc'
@@ -19,16 +21,17 @@ import { validateDevelopmentUrl } from './window-security'
 let window: BrowserWindow | null = null
 let runner: EvaluationRunner | null = null
 let diagnostics: DiagnosticsRunner | null = null
+let transfer: LabelTransferService | null = null
 let quitting = false
 
 function finishQuitting(): void {
-  if (quitting && !runner?.isActive() && !diagnostics?.isActive()) {
+  if (quitting && !runner?.isActive() && !diagnostics?.isActive() && !transfer?.isActive()) {
     app.quit()
   }
 }
 
 function cancelBeforeQuit(event: { preventDefault(): void }): void {
-  if (!runner?.isActive() && !diagnostics?.isActive()) {
+  if (!runner?.isActive() && !diagnostics?.isActive() && !transfer?.isActive()) {
     return
   }
   event.preventDefault()
@@ -120,12 +123,33 @@ if (!app.requestSingleInstanceLock()) {
           finishQuitting()
         }
       )
-      registerEvaluationIpc(
-        window,
-        documentUrl,
-        runner,
-        new EvaluationSettingsStore(join(app.getPath('userData'), 'evaluation-settings.json'))
+      const settings = new EvaluationSettingsStore(
+        join(app.getPath('userData'), 'evaluation-settings.json')
       )
+      const mainWindow = window
+      transfer = new LabelTransferService(
+        join(pythonDirectory, 'transfer.py'),
+        () => settings.get(),
+        async (directory) => {
+          let defaultPath = join(directory, 'labels.json')
+          try {
+            await lstat(defaultPath)
+            defaultPath = join(directory, `labels-${Date.now()}.json`)
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw error
+            }
+          }
+          const result = await dialog.showSaveDialog(mainWindow, {
+            title: '새 정답 목록 저장',
+            defaultPath,
+            filters: [{ name: 'JSON', extensions: ['json'] }]
+          })
+          return result.canceled ? null : (result.filePath ?? null)
+        },
+        finishQuitting
+      )
+      registerEvaluationIpc(window, documentUrl, runner, settings, transfer)
       registerDiagnosticsIpc(window, documentUrl, diagnostics)
       registerComparisonIpc(window, documentUrl, new ComparisonService())
       registerCharsetIpc(window, documentUrl, new CharsetService())

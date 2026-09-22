@@ -38,6 +38,8 @@ export function EvaluationSetup({
   const [pythons, setPythons] = useState<PythonRuntime[]>([])
   const [checkpoints, setCheckpoints] = useState<string[]>([])
   const [choosing, setChoosing] = useState(false)
+  const [transferring, setTransferring] = useState(false)
+  const [transferMessage, setTransferMessage] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(window.evaluation != null)
   const disabled = busy || choosing || initializing || !connected
   const selectedPython = pythons.find((python) => python.executable === request.pythonExecutable)
@@ -156,6 +158,9 @@ export function EvaluationSetup({
       }
 
       const selectedPath = result.value
+      if (kind === 'dataset' || kind === 'labels') {
+        setTransferMessage(null)
+      }
       if (kind !== 'run') {
         const next = { ...request, [requestFields[kind]]: selectedPath }
         await save(next)
@@ -189,6 +194,35 @@ export function EvaluationSetup({
       onError(error instanceof Error ? error.message : '경로를 읽거나 설정을 저장하지 못했습니다.')
     } finally {
       setChoosing(false)
+    }
+  }
+
+  async function createLabels(): Promise<void> {
+    if (disabled || !request.datasetDirectory) {
+      return
+    }
+    setChoosing(true)
+    setTransferring(true)
+    setTransferMessage(null)
+    onError(null)
+    try {
+      const result = await window.evaluation.createLabels(request.datasetDirectory)
+      if (!result.ok) {
+        throw new Error(result.error)
+      }
+      if (result.value === null) {
+        return
+      }
+      const { output, samples, unanswered } = result.value
+      setTransferMessage(`정답 ${samples}개 저장 · 미작성 ${unanswered}개`)
+      const next = { ...request, labelsPath: output }
+      await save(next)
+      setRequest(next)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '정답 목록을 만들지 못했습니다.')
+    } finally {
+      setChoosing(false)
+      setTransferring(false)
     }
   }
 
@@ -321,6 +355,20 @@ export function EvaluationSetup({
           disabled={disabled}
           onChoose={() => void choosePath('labels')}
         />
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={disabled || !request.datasetDirectory}
+          onClick={() => void createLabels()}
+        >
+          {transferring ? '정답 목록 만드는 중…' : '정답 목록 만들기'}
+        </button>
+        <p className="field-help">Cropper에 저장한 정답을 가져와 새 파일로 저장합니다.</p>
+        {transferMessage && (
+          <p className="field-help" role="status">
+            {transferMessage}
+          </p>
+        )}
         <p className="field-help">정답 목록에 등록된 ROI PNG만 평가합니다.</p>
       </fieldset>
 
