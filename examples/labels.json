@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "samples": [
+    {
+      "id": "example-1",
+      "image": "20260922-120000-1234abcd/001.png",
+      "truth": "샘플"
+    }
+  ]
+}

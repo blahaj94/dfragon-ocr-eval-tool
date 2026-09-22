@@ -1,0 +1,15 @@
+node_modules/
+out/
+dist/
+coverage/
+test-results/
+playwright-report/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.codex/
+reports/
+*.pdparams
+*.pdopt
+.env

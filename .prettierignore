@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+out
+node_modules
+test-results
+playwright-report
+python
+.codex

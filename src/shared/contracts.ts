@@ -1,0 +1,72 @@
+export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
+export type PathKind = 'python' | 'source' | 'run' | 'dataset' | 'labels' | 'output'
+
+export interface EvaluationRequest {
+  pythonExecutable: string
+  ldbOcrSourcePath: string
+  runDirectory: string
+  checkpointPath: string
+  datasetDirectory: string
+  labelsPath: string
+  outputDirectory: string
+}
+
+export interface EvaluationSample {
+  id: string
+  imagePath: string
+  truth: string
+  prediction: string
+  editDistance: number
+  confidence: number | null
+}
+
+export interface Metrics {
+  cer: number
+  exactMatch: number
+  sampleCount: number
+  characterCount: number
+}
+
+export interface EvaluationReport {
+  status: 'completed' | 'cancelled' | 'failed'
+  totalSamples: number
+  processedSamples: number
+  summary: Metrics | null
+  partialSummary?: Metrics | null
+  samples: EvaluationSample[]
+  error: string | null
+  startedAt: string
+  finishedAt: string
+}
+
+export interface EvaluationSnapshot {
+  status: 'idle' | 'starting' | 'running' | 'cancelling' | EvaluationReport['status']
+  totalSamples: number
+  processedSamples: number
+  samples: EvaluationSample[]
+  report: EvaluationReport | null
+  reportPath: string | null
+  error: string | null
+}
+
+export interface EvaluationApi {
+  choosePath(kind: PathKind): Promise<Result<string | null>>
+  inspectRun(runDirectory: string): Promise<Result<{ checkpoints: string[] }>>
+  start(request: EvaluationRequest): Promise<Result<null>>
+  cancel(): Promise<Result<null>>
+  readImage(imagePath: string): Promise<Result<string>>
+  getSnapshot(): Promise<Result<EvaluationSnapshot>>
+  onSnapshot(listener: (snapshot: EvaluationSnapshot) => void): () => void
+  openReport(): Promise<Result<null>>
+}
+
+export const IPC = {
+  choosePath: 'evaluation:choose-path',
+  inspectRun: 'evaluation:inspect-run',
+  start: 'evaluation:start',
+  cancel: 'evaluation:cancel',
+  readImage: 'evaluation:read-image',
+  getSnapshot: 'evaluation:get-snapshot',
+  snapshot: 'evaluation:snapshot',
+  openReport: 'evaluation:open-report'
+} as const
