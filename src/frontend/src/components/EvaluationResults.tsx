@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { EvaluationSample, EvaluationSnapshot, Result } from '../../../shared/contracts'
 import type { DiagnosticApi, DiagnosticSnapshot } from '../../../shared/diagnostics'
 import { ImageDialog } from './ImageDialog'
-import { SampleImage } from './SampleImage'
+import { SampleImage, type ImageReader } from './SampleImage'
 import { SampleDiagnostics } from './SampleDiagnostics'
 
 interface EvaluationDiagnostics {
@@ -18,11 +18,13 @@ interface EvaluationDiagnostics {
 export function EvaluationResults({
   samples,
   status,
-  diagnostics
+  diagnostics,
+  readImage
 }: {
   samples: EvaluationSample[]
   status: EvaluationSnapshot['status']
   diagnostics?: EvaluationDiagnostics
+  readImage?: ImageReader
 }): React.JSX.Element {
   const [showAll, setShowAll] = useState(false)
   const [selectedSample, setSelectedSample] = useState<EvaluationSample | null>(null)
@@ -107,7 +109,11 @@ export function EvaluationResults({
                       aria-label={`${sample.id} 이미지 확대`}
                       onClick={() => setSelectedSample(sample)}
                     >
-                      <SampleImage imagePath={sample.imagePath} label={`${sample.id} ROI`} />
+                      <SampleImage
+                        imagePath={sample.imagePath}
+                        label={`${sample.id} ROI`}
+                        readImage={readImage}
+                      />
                       <span className="zoom-label" aria-hidden="true">
                         확대 ↗
                       </span>
@@ -167,7 +173,7 @@ export function EvaluationResults({
         <span>이미지를 클릭해 확대</span>
       </div>
       {selectedSample != null && (
-        <ImageDialog sample={selectedSample} onClose={closeSample}>
+        <ImageDialog sample={selectedSample} onClose={closeSample} readImage={readImage}>
           {diagnostics != null && (
             <SampleDiagnostics
               key={`${diagnostics.reportPath}\u0000${selectedSample.id}`}

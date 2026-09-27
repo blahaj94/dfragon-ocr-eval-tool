@@ -1481,3 +1481,42 @@ tr:last-child td {
     transition: none !important;
   }
 }
+/* Library training uses the same form, progress and results panels as evaluation. */
+.training-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.training-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 24px;
+}
+.training-options input,
+.training-publish input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #c8d2dc;
+  border-radius: 6px;
+  font: inherit;
+}
+.training-runtime {
+  margin: 16px 0;
+}
+.training-runtime summary {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.training-progress,
+.training-publish {
+  padding: 22px;
+}
+.training-progress p {
+  overflow-wrap: anywhere;
+}
+.training-progress progress {
+  width: 100%;
+  margin: 12px 0;
+}

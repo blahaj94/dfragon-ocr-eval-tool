@@ -4,6 +4,7 @@ import { DATASET_IPC, type DatasetApi } from '../shared/dataset'
 import { COMPARISON_IPC, type ComparisonApi } from '../shared/comparison'
 import { CHARSET_IPC, type CharsetApi } from '../shared/charset'
 import { DIAGNOSTIC_IPC, type DiagnosticApi, type DiagnosticSnapshot } from '../shared/diagnostics'
+import { TRAINING_IPC, type TrainingApi, type TrainingSnapshot } from '../shared/training'
 
 function invoke<T>(channel: string, ...args: unknown[]): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, ...args) as Promise<Result<T>>
@@ -72,3 +73,24 @@ const diagnostics: DiagnosticApi = {
 }
 
 contextBridge.exposeInMainWorld('diagnostics', diagnostics)
+
+const training: TrainingApi = {
+  login: () => invoke(TRAINING_IPC.login),
+  logout: () => invoke(TRAINING_IPC.logout),
+  models: () => invoke(TRAINING_IPC.models),
+  defaults: () => invoke(TRAINING_IPC.defaults),
+  download: (id, directory) => invoke(TRAINING_IPC.download, id, directory),
+  open: (directory) => invoke(TRAINING_IPC.open, directory),
+  start: (options) => invoke(TRAINING_IPC.start, options),
+  cancel: () => invoke(TRAINING_IPC.cancel),
+  publish: (name) => invoke(TRAINING_IPC.publish, name),
+  readImage: (path) => invoke(TRAINING_IPC.readImage, path),
+  getSnapshot: () => invoke(TRAINING_IPC.getSnapshot),
+  onSnapshot: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: TrainingSnapshot): void =>
+      listener(snapshot)
+    ipcRenderer.on(TRAINING_IPC.snapshot, handler)
+    return () => ipcRenderer.removeListener(TRAINING_IPC.snapshot, handler)
+  }
+}
+contextBridge.exposeInMainWorld('training', training)

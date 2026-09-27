@@ -25,7 +25,8 @@ export class DiagnosticsRunner {
   constructor(
     private readonly workerPath: string,
     private readonly evaluation: EvaluationRunner,
-    private readonly publish: (snapshot: DiagnosticSnapshot) => void
+    private readonly publish: (snapshot: DiagnosticSnapshot) => void,
+    private readonly otherGpuBusy: () => boolean = () => false
   ) {}
 
   isActive(): boolean {
@@ -48,6 +49,9 @@ export class DiagnosticsRunner {
   ): Promise<DiagnosticResult> {
     if (this.busy) {
       throw new Error('이미 샘플 진단이 진행 중입니다.')
+    }
+    if (this.otherGpuBusy()) {
+      throw new Error('GPU 학습이 진행 중입니다.')
     }
     if (typeof includeShapes !== 'boolean') {
       throw new Error('추가 shape 진단 여부는 boolean이어야 합니다.')

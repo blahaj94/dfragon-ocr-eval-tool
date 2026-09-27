@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -213,17 +213,23 @@ describe('evaluation process boundary', () => {
     await vi.waitFor(() => expect(runner.getSnapshot().status).toBe('running'))
     const args = spawn.mock.calls[0][1] as string[]
     const cancelPath = args[args.indexOf('--cancel-file') + 1]
-    // A directory at the marker path provokes a real filesystem write failure on every OS.
-    await mkdir(cancelPath)
-    expect(() => runner.cancel()).toThrow('취소 요청을 전달하지 못했습니다.')
-    expect(runner.isActive()).toBe(true)
-    expect(published).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        status: 'running',
-        error: expect.stringContaining('평가는 계속 실행 중입니다.')
-      })
-    )
-    await rm(cancelPath, { recursive: true, force: true })
+    // A zero-byte append to a directory can succeed on Windows. A missing parent
+    // produces a real write failure while leaving the worker available for retry.
+    const markerDirectory = dirname(cancelPath)
+    const movedDirectory = `${markerDirectory}-unavailable`
+    await rename(markerDirectory, movedDirectory)
+    try {
+      expect(() => runner.cancel()).toThrow('취소 요청을 전달하지 못했습니다.')
+      expect(runner.isActive()).toBe(true)
+      expect(published).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'running',
+          error: expect.stringContaining('평가는 계속 실행 중입니다.')
+        })
+      )
+    } finally {
+      await rename(movedDirectory, markerDirectory)
+    }
     runner.cancel()
     expect(await readFile(cancelPath, 'utf8')).toBe('')
     expect(runner.getSnapshot()).toMatchObject({ status: 'cancelling', error: null })
