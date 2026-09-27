@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { LibraryClient, parseModel } from './library'
@@ -96,11 +96,11 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
-async function completedRun(run: string) {
+async function completedRun(run: string, experiment = root) {
   await mkdir(run, { recursive: true })
   const sample = {
     id: rows[2].id,
-    imagePath: join(root, String(rows[2].image)),
+    imagePath: join(experiment, String(rows[2].image)),
     truth: '다',
     prediction: '다',
     confidence: 0.9,
@@ -116,7 +116,7 @@ async function completedRun(run: string) {
     editDistance: 0
   }
   await writeFile(join(run, 'weights.pdparams'), 'trained weights')
-  const datasetSha256 = checksum(await readFile(join(root, 'dataset.json')))
+  const datasetSha256 = checksum(await readFile(join(experiment, 'dataset.json')))
   const checkpointSha256 = checksum('trained weights')
   const report = {
     schemaVersion: 1,
@@ -130,7 +130,7 @@ async function completedRun(run: string) {
     finishedAt: '2026-09-27T00:00:01Z',
     reproducibility: {
       normalization: 'none',
-      settings: { datasetDirectory: root },
+      settings: { datasetDirectory: experiment },
       datasetSha256,
       checkpointSha256,
       sourceSha256: {
@@ -207,6 +207,48 @@ test('completed training can reopen after restart, compare reports and restrict 
   await writeFile(report.samples[0].imagePath, 'changed')
   await expect(reopened.readImage(report.samples[0].imagePath)).rejects.toThrow('변경')
   await expect(reopened.open(run)).rejects.toThrow('다릅니다')
+})
+
+test('download through a directory link accepts canonical worker paths and can reopen the completed run', async () => {
+  const output = join(root, 'output')
+  const linkedOutput = join(root, 'linked-output')
+  const experiment = join(output, 'experiment')
+  await mkdir(experiment, { recursive: true })
+  for (const name of ['images', 'model', 'dataset.json', 'ready.json']) {
+    await cp(join(root, name), join(experiment, name), { recursive: true })
+  }
+  await symlink(output, linkedOutput, process.platform === 'win32' ? 'junction' : 'dir')
+  const folder = await realpath(experiment)
+  vi.spyOn(library, 'download').mockResolvedValue({
+    folder: join(linkedOutput, 'experiment'),
+    model,
+    counts: { train: 1, val: 1, test: 1, skipped: 0 }
+  })
+  await service.download(id, linkedOutput)
+  await service.start(options())
+  const args: string[] = spawn.mock.calls[0][1]
+  const requestPath = args[args.indexOf('--request') + 1]
+  const run = await realpath(dirname(requestPath))
+  const report = await completedRun(run, folder)
+  // Python resolves both paths before emitting its sample and final events.
+  child.stdout.write(JSON.stringify({ type: 'sample', sample: report.samples[0] }) + '\n')
+  child.stdout.write(
+    JSON.stringify({ type: 'finished', reportPath: join(run, 'report.json') }) + '\n'
+  )
+  child.emit('close', 0)
+  await vi.waitFor(() => expect(service.isActive()).toBe(false))
+  expect(service.getSnapshot()).toMatchObject({
+    status: 'completed',
+    directory: folder,
+    metrics: report.summary
+  })
+  expect(JSON.parse(await readFile(requestPath, 'utf8'))).toMatchObject({
+    directory: folder,
+    runDirectory: run
+  })
+  expect(await service.readImage(report.samples[0].imagePath)).toMatch(/^data:image\/png/)
+  await service.open(join(linkedOutput, 'experiment', 'runs', basename(run)))
+  expect(service.getSnapshot()).toMatchObject({ status: 'completed', directory: folder })
 })
 
 test('cancelled worker preserves cancellation and never accepts a final score', async () => {
