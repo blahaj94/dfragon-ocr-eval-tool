@@ -17,21 +17,39 @@ import { DiagnosticsRunner } from './diagnostics/runner'
 import { registerDiagnosticsIpc } from './diagnostics-ipc'
 import { DIAGNOSTIC_IPC } from '../shared/diagnostics'
 import { validateDevelopmentUrl } from './window-security'
+import { LibrarySession } from './training/auth'
+import { LibraryClient } from './training/library'
+import { TrainingService } from './training/service'
+import { registerTrainingIpc } from './training-ipc'
+import { TRAINING_IPC } from '../shared/training'
 
 let window: BrowserWindow | null = null
 let runner: EvaluationRunner | null = null
 let diagnostics: DiagnosticsRunner | null = null
 let transfer: LabelTransferService | null = null
 let quitting = false
+let training: TrainingService | null = null
+let librarySession: LibrarySession | null = null
 
 function finishQuitting(): void {
-  if (quitting && !runner?.isActive() && !diagnostics?.isActive() && !transfer?.isActive()) {
+  if (
+    quitting &&
+    !runner?.isActive() &&
+    !diagnostics?.isActive() &&
+    !transfer?.isActive() &&
+    !training?.isActive()
+  ) {
     app.quit()
   }
 }
 
 function cancelBeforeQuit(event: { preventDefault(): void }): void {
-  if (!runner?.isActive() && !diagnostics?.isActive() && !transfer?.isActive()) {
+  if (
+    !runner?.isActive() &&
+    !diagnostics?.isActive() &&
+    !transfer?.isActive() &&
+    !training?.isActive()
+  ) {
     return
   }
   event.preventDefault()
@@ -42,6 +60,11 @@ function cancelBeforeQuit(event: { preventDefault(): void }): void {
     }
     if (diagnostics?.isActive()) {
       diagnostics.cancel()
+    }
+    if (training?.isActive()) {
+      void training.cancel().catch(() => {
+        quitting = false
+      })
     }
   } catch {
     // The runner publishes the cancellation error; keep the window and worker available.
@@ -111,7 +134,7 @@ if (!app.requestSingleInstanceLock()) {
           }
           finishQuitting()
         },
-        () => diagnostics?.isActive() ?? false
+        () => (diagnostics?.isActive() ?? false) || (training?.isActive() ?? false)
       )
       diagnostics = new DiagnosticsRunner(
         join(pythonDirectory, 'diagnostic_worker.py'),
@@ -121,11 +144,28 @@ if (!app.requestSingleInstanceLock()) {
             window.webContents.send(DIAGNOSTIC_IPC.snapshot, snapshot)
           }
           finishQuitting()
-        }
+        },
+        () => training?.isActive() ?? false
       )
       const settings = new EvaluationSettingsStore(
         join(app.getPath('userData'), 'evaluation-settings.json')
       )
+      librarySession = new LibrarySession()
+      const library = librarySession
+      training = new TrainingService(
+        new LibraryClient((input, init) =>
+          library.session.fetch(input instanceof URL ? input.href : input, init)
+        ),
+        join(pythonDirectory, 'training.py'),
+        (snapshot) => {
+          if (window != null && !window.isDestroyed()) {
+            window.webContents.send(TRAINING_IPC.snapshot, snapshot)
+          }
+          finishQuitting()
+        },
+        () => (runner?.isActive() ?? false) || (diagnostics?.isActive() ?? false)
+      )
+      registerTrainingIpc(window, documentUrl, training, librarySession, settings)
       const mainWindow = window
       transfer = new LabelTransferService(
         join(pythonDirectory, 'transfer.py'),
@@ -172,5 +212,6 @@ if (!app.requestSingleInstanceLock()) {
       app.quit()
     })
   app.on('before-quit', cancelBeforeQuit)
+  app.on('will-quit', () => librarySession?.close())
   app.on('window-all-closed', () => app.quit())
 }

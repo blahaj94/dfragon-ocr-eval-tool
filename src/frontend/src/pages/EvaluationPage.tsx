@@ -3,13 +3,15 @@ import { EvaluationWorkspace } from '../sections/EvaluationWorkspace'
 import { DatasetWorkspace } from '../sections/DatasetWorkspace'
 import { ComparisonWorkspace } from '../sections/ComparisonWorkspace'
 import { CharsetWorkspace } from '../sections/CharsetWorkspace'
+import { TrainingWorkspace } from '../sections/TrainingWorkspace'
 import dragonIcon from '../../../../resources/icon.png'
 
 const tabs = [
   { id: 'evaluation', label: '평가' },
   { id: 'dataset', label: 'Dataset' },
   { id: 'comparison', label: '결과 비교' },
-  { id: 'charset', label: '문자 검사' }
+  { id: 'charset', label: '문자 검사' },
+  { id: 'training', label: '학습' }
 ] as const
 
 type WorkspaceTab = (typeof tabs)[number]['id']
@@ -19,9 +21,13 @@ export function EvaluationPage(): React.JSX.Element {
   const [datasetOpened, setDatasetOpened] = useState(false)
   const [comparisonOpened, setComparisonOpened] = useState(false)
   const [charsetOpened, setCharsetOpened] = useState(false)
+  const [trainingOpened, setTrainingOpened] = useState(false)
 
   function activateTab(tab: WorkspaceTab): void {
     setActiveTab(tab)
+    if (tab === 'training') {
+      setTrainingOpened(true)
+    }
     if (tab === 'dataset') {
       setDatasetOpened(true)
     }
@@ -112,6 +118,14 @@ export function EvaluationPage(): React.JSX.Element {
           hidden={activeTab !== 'charset'}
         >
           {charsetOpened && <CharsetWorkspace />}
+        </div>
+        <div
+          id="training-panel"
+          role="tabpanel"
+          aria-labelledby="training-tab"
+          hidden={activeTab !== 'training'}
+        >
+          {trainingOpened && <TrainingWorkspace />}
         </div>
       </main>
     </div>

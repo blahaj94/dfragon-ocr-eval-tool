@@ -1,0 +1,2 @@
+# This fixture's byte hash is recorded in request.json.
+/e2e/fixtures/charset/characters.txt text eol=lf

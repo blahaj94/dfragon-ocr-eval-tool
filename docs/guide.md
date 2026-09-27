@@ -14,6 +14,8 @@ Windows GPU PC에서 **ldb-ocr 체크포인트와 라벨이 있는 Cropper ROI�
 
 ## Windows 패키지 실행
 
+자료실의 모델·데이터를 가져와 학습하려면 [자료실 모델 학습](training-domain-story.md)을 따릅니다. 이 경로는 공식 한국어 PP-OCRv5 학습 가중치와 고정 PaddleOCR 소스를 사용하며, 아래 기존 ldb-ocr 평가 입력과 구분됩니다.
+
 [최신 릴리즈](https://github.com/blahaj94/dfragon-ocr-eval-tool/releases/latest)에서 Windows x64 패키지를 받습니다.
 
 - `DFragon-OCR-Eval-버전-x64-setup.exe`: 설치 후 **Real OCR Evaluation** 실행.

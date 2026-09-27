@@ -14,9 +14,12 @@
 
 <p align="center">
   <a href="docs/guide.md">실행 안내</a> · <a href="docs/dataset.md">Dataset 나누기</a> · <a href="docs/comparison.md">결과 비교</a> · <a href="docs/charset.md">문자 검사</a> · <a href="docs/model-input.md">모델 입력 확인</a>
+  · <a href="docs/training-domain-story.md">자료실 모델 학습</a>
 </p>
 
 ## 01. 모델과 데이터 선택
+
+**학습** 탭에서 미니PC의 자료실에 로그인하고 모델·train/val/test 데이터를 가져와 Windows GPU로 학습한 뒤 평가할 수 있습니다. 새 모델은 **미니PC에 올리기**로 등록합니다. [서버 준비와 사용 순서](docs/training-domain-story.md)를 확인하세요.
 
 Cropper에서 정답을 작성했다면 [앱에서 정답 목록 만들기](docs/transfer.md).
 

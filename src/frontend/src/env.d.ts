@@ -3,6 +3,7 @@ import type { DatasetApi } from '../../shared/dataset'
 import type { ComparisonApi } from '../../shared/comparison'
 import type { CharsetApi } from '../../shared/charset'
 import type { DiagnosticApi } from '../../shared/diagnostics'
+import type { TrainingApi } from '../../shared/training'
 
 declare global {
   interface Window {
@@ -11,5 +12,6 @@ declare global {
     comparison: ComparisonApi
     charset: CharsetApi
     diagnostics: DiagnosticApi
+    training: TrainingApi
   }
 }
