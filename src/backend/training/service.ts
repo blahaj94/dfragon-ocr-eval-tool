@@ -218,9 +218,11 @@ export class TrainingService {
       const result = await this.library.download(modelId, root, this.controller.signal, (message) =>
         this.update({ message })
       )
+      const folder = await realpath(result.folder)
+      this.controller.signal.throwIfAborted()
       this.update({
         status: 'ready',
-        directory: result.folder,
+        directory: folder,
         model: result.model,
         counts: result.counts,
         message: '모델과 데이터가 준비되었습니다. 학습 설정을 확인해 주세요.'
