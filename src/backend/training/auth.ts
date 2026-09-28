@@ -1,6 +1,7 @@
 import { BrowserWindow, session, type Session } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { LIBRARY_ORIGIN } from './library'
+import { isAllowedLibraryNavigation } from './auth-navigation'
 
 export class LibrarySession {
   readonly session: Session = session.fromPartition(`ocr-training-${randomUUID()}`, {
@@ -45,28 +46,14 @@ export class LibrarySession {
       }
     })
     this.window = window
-    const allowed = (value: string): boolean => {
-      try {
-        const url = new URL(value)
-        return (
-          url.protocol === 'https:' &&
-          !url.username &&
-          !url.password &&
-          (url.origin === LIBRARY_ORIGIN ||
-            (url.origin === 'https://api.dfragon.com' && url.pathname.startsWith('/auth/')))
-        )
-      } catch {
-        return false
-      }
-    }
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     window.webContents.on('will-navigate', (event, url) => {
-      if (!allowed(url)) {
+      if (!isAllowedLibraryNavigation(url)) {
         event.preventDefault()
       }
     })
     window.webContents.on('will-redirect', (event, url) => {
-      if (!allowed(url)) {
+      if (!isAllowedLibraryNavigation(url)) {
         event.preventDefault()
       }
     })
