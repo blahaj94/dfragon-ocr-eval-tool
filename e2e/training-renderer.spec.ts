@@ -82,8 +82,8 @@ test('library selection leads to local training, test review and explicit public
           },
           missing: [],
           dictionarySize: 11945,
-          width: 160,
-          height: 32
+          width: 8192,
+          height: 4096
         }
       }),
       previewSupplement: async () => ({ ok: false, error: 'fixture: configure synthesis' }),
@@ -137,6 +137,10 @@ test('library selection leads to local training, test review and explicit public
   await page.getByRole('button', { name: '모델·데이터 가져오기' }).click()
   await expect(page.getByText('train 30 · val 8 · test 1 · 사용 안 함 4')).toBeVisible()
   await page.getByLabel('부족한 문자군을 합성으로 보충').check()
+  await expect(page.getByLabel('크롭 너비 (px)')).toHaveValue('2048')
+  await expect(page.getByLabel('크롭 높이 (px)')).toHaveValue('2048')
+  await page.getByLabel('크롭 너비 (px)').fill('160')
+  await page.getByLabel('크롭 높이 (px)').fill('32')
   await expect(page.getByRole('button', { name: '학습 후 test 평가' })).toBeDisabled()
   await expect(page.getByLabel('특수문자 목표 (%)')).toHaveValue('')
   await expect(page.getByLabel('허용 오차 (%p)')).toHaveValue('')

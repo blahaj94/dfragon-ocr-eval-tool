@@ -9,7 +9,7 @@ export const CHARACTER_GROUPS = [
   'other'
 ] as const
 export type CharacterGroup = (typeof CHARACTER_GROUPS)[number]
-export const CHARACTER_GROUP_LABELS: Record<CharacterGroup, string> = {
+export const CHARACTER_GROUP_LABELS = {
   hangul: '한글',
   special: '특수문자',
   hiragana: '히라가나',
@@ -18,7 +18,8 @@ export const CHARACTER_GROUP_LABELS: Record<CharacterGroup, string> = {
   latin: '영문·라틴',
   digit: '숫자',
   other: '기타'
-}
+} as const satisfies Record<CharacterGroup, string>
+export const SUPPLEMENT_CROP_SIZE = { min: 4, max: 2048 } as const
 export interface CharacterDistribution {
   images: number
   nicknames: number

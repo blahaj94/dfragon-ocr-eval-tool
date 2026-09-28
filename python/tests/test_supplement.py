@@ -1,7 +1,9 @@
 import copy
 import json
 import random
+import sys
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -138,6 +140,30 @@ class FakeRenderer:
         return SimpleNamespace(
             image=Image.new("RGBA", (len(text) * 4, 5), (255, 255, 0, 128)), metadata={"text": text}
         )
+
+
+@pytest.mark.parametrize("version", ["0.1.1", "0.1.3"])
+def test_unsupported_synthesizer_fails_before_constructing_renderer(snapshot, monkeypatch, version):
+    root, _ = snapshot
+    output = root / "previews/version-check"
+    output.mkdir(parents=True)
+    renderer = Mock()
+    module = SimpleNamespace(FontPaths=Mock(), Renderer=renderer, validate_nickname=valid)
+    monkeypatch.setitem(sys.modules, "dnf_ocr_synth", module)
+    monkeypatch.setattr("importlib.metadata.version", lambda _: version)
+
+    with pytest.raises(ValueError, match="0.1.2"):
+        prepare_supplement(
+            {
+                "directory": str(root),
+                "outputDirectory": str(output),
+                "mode": "preview",
+                "options": options(),
+            }
+        )
+
+    renderer.assert_not_called()
+    assert not (output / "images").exists()
 
 
 def test_generate_uses_frozen_real_input_and_one_selected_supplement_only(snapshot):

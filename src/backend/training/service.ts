@@ -6,12 +6,9 @@ import { createInterface } from 'node:readline'
 import type { LibraryModel, TrainingOptions, TrainingSnapshot } from '../../shared/training'
 import { isRecord, isSample, isReport, readPath } from '../evaluation/validation'
 import type { SupplementPreview } from '../../shared/supplement'
-import {
-  parseSupplementOptions,
-  readSupplement,
-  runSupplementWorker,
-  supplementInfo
-} from './supplement'
+import { readSupplement, supplementInfo } from './supplement'
+import { parseSupplementOptions } from './supplement-validation'
+import { runSupplementWorker } from './supplement-worker'
 import { LibraryClient, parseDataset, parseModel } from './library'
 
 export function parseTrainingOptions(value: unknown): TrainingOptions {
@@ -337,16 +334,16 @@ export class TrainingService {
       if (this.cancelRequested) {
         throw new Error('합성 준비를 취소했습니다.')
       }
-      await runSupplementWorker(
-        options.pythonExecutable,
-        join(dirname(this.worker), 'supplement.py'),
+      await runSupplementWorker({
+        python: options.pythonExecutable,
+        worker: join(dirname(this.worker), 'supplement.py'),
         request,
-        this.cancelFile,
-        (child) => {
+        cancelFile: this.cancelFile,
+        onChild: (child) => {
           this.child = child
         },
-        (message) => this.update({ message })
-      )
+        onMessage: (message) => this.update({ message })
+      })
       if (this.cancelRequested) {
         throw new Error('합성 준비를 취소했습니다.')
       }
@@ -430,16 +427,16 @@ export class TrainingService {
         if (this.cancelRequested) {
           throw new Error('합성 준비를 취소했습니다.')
         }
-        await runSupplementWorker(
-          supplement.options.pythonExecutable,
-          join(dirname(this.worker), 'supplement.py'),
-          synthesisRequest,
-          this.cancelFile,
-          (child) => {
+        await runSupplementWorker({
+          python: supplement.options.pythonExecutable,
+          worker: join(dirname(this.worker), 'supplement.py'),
+          request: synthesisRequest,
+          cancelFile: this.cancelFile,
+          onChild: (child) => {
             this.child = child
           },
-          (message) => this.update({ message })
-        )
+          onMessage: (message) => this.update({ message })
+        })
         const generated = await readSupplement(root, output, false)
         if (JSON.stringify(generated.plan) !== JSON.stringify(supplement.plan)) {
           throw new Error('미리보기 이후 입력이 바뀌었습니다. 다시 미리보기해 주세요.')

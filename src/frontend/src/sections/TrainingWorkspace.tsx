@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LibraryModel, TrainingOptions, TrainingSnapshot } from '../../../shared/training'
 import type { Result } from '../../../shared/contracts'
 import { PathField } from '../components/PathField'
-import { SupplementSettings } from '../components/SupplementSettings'
+import { SupplementSettings } from './SupplementSettings'
 import { EvaluationResults } from '../components/EvaluationResults'
 
 const initial: TrainingSnapshot = {

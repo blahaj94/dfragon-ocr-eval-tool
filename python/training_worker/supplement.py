@@ -14,6 +14,32 @@ from .dictionary import extend_characters
 from .snapshot import digest, load_snapshot
 from .supplement_plan import GROUPS, plan_supplement, validate_plan_options
 
+SYNTHESIZER_VERSION = "0.1.2"
+
+
+def load_synthesizer(fonts: dict):
+    """Check the supported local runtime before importing or constructing its renderer."""
+    try:
+        version = importlib.metadata.version("dnf-ocr-synth")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise ValueError(
+            f"합성용 Python에 dnf-ocr-synth {SYNTHESIZER_VERSION}를 설치해 주세요."
+        ) from error
+    if version != SYNTHESIZER_VERSION:
+        raise ValueError(
+            f"지원하는 dnf-ocr-synth 버전은 {SYNTHESIZER_VERSION}입니다. 현재 버전: {version}"
+        )
+
+    try:
+        from dnf_ocr_synth import FontPaths, Renderer, validate_nickname
+    except ImportError as error:
+        raise ValueError("합성용 Python의 dnf-ocr-synth 의존성을 확인해 주세요.") from error
+
+    renderer = Renderer(
+        FontPaths(**{key: Path(path) if path else None for key, path in fonts.items()})
+    )
+    return renderer, validate_nickname, version
+
 
 def validate_render_options(options: dict) -> None:
     validate_plan_options(options)
@@ -143,19 +169,7 @@ def prepare_supplement(
     if unsupported:
         raise ValueError("현재 모델 사전에 없는 합성 문자: " + " ".join(unsupported))
     if renderer is None:
-        try:
-            from dnf_ocr_synth import FontPaths, Renderer, validate_nickname
-        except ImportError as error:
-            raise ValueError(
-                "합성용 Python에 dnf-ocr-synth 0.1.2를 설치해 주세요. GPU Python과 별도로 사용할 수 있습니다."
-            ) from error
-        renderer = Renderer(
-            FontPaths(
-                **{key: Path(path) if path else None for key, path in options["fonts"].items()}
-            )
-        )
-        validator = validate_nickname
-        version = importlib.metadata.version("dnf-ocr-synth")
+        renderer, validator, version = load_synthesizer(options["fonts"])
     else:
         version = "test-double"
     plan = plan_supplement(dataset["samples"], options, validator, cancelled)
