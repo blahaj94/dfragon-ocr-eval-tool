@@ -5,10 +5,12 @@ from pathlib import Path
 
 from eval_worker.dataset import read_object
 
+from .dictionary import write_run_dictionary
 from .recognition.distance import edit_distance
 from .recognition.metrics import recognition_metrics
 from .runtime import REVISION, prepare_runtime
 from .snapshot import digest, load_snapshot
+from .supplement_snapshot import load_supplement
 
 
 class Cancelled(Exception):
@@ -66,20 +68,50 @@ def run_training(request: dict, cancelled, emit) -> None:
             raise Cancelled()
 
     check_cancel()
-    dataset, source_model, warnings = load_snapshot(root)
+    additions = request.get("additionalCharacters", "")
+    dataset, source_model, warnings = load_snapshot(root, additions)
+    added_characters = write_run_dictionary(
+        root / "model/characters.txt", run / "characters.txt", additions
+    )
+    dictionary_sha = digest(run / "characters.txt")
+    supplemental = []
+    supplement = None
+    if request.get("supplementSha256") is not None:
+        supplemental, supplement = load_supplement(
+            root,
+            run,
+            request["supplementSha256"],
+            dataset,
+            set((run / "characters.txt").read_text(encoding="utf-8").splitlines()) | {" "},
+        )
+    actual_rows = [{**row, "source": "real"} for row in dataset["samples"]] + [
+        {**row, "source": "synthetic"} for row in supplemental
+    ]
+    write_json(
+        run / "input.json",
+        {
+            "schemaVersion": 1,
+            "datasetSha256": digest(root / "dataset.json"),
+            "dictionarySha256": dictionary_sha,
+            "supplementSha256": request.get("supplementSha256"),
+            "samples": actual_rows,
+        },
+    )
+    input_sha = digest(run / "input.json")
     dataset_sha = digest(root / "dataset.json")
     for warning in warnings:
         emit({"type": "message", "message": warning})
     emit({"type": "message", "message": "GPU 모델과 학습 입력을 확인하고 있습니다."})
     paddle, np, model, decoder, operators, transform, loss_function = prepare_runtime(
         Path(request["upstreamDirectory"]),
-        root / "model/characters.txt",
+        run / "characters.txt",
         root / "model/weights.pdparams",
+        source_dictionary=root / "model/characters.txt",
     )
     paddle.seed(42)
     rng = np.random.default_rng(42)
     rows = {
-        split: [row for row in dataset["samples"] if row["split"] == split]
+        split: [row for row in actual_rows if row["split"] == split]
         for split in ("train", "val", "test")
     }
 
@@ -93,7 +125,7 @@ def run_training(request: dict, cancelled, emit) -> None:
             raise ValueError("PaddleOCR rejected or truncated a selected label.")
         return result
 
-    for row in dataset["samples"]:
+    for row in actual_rows:
         transformed(row)
 
     def evaluate(split: str, publish: bool = False) -> tuple[dict, list[dict]]:
@@ -182,7 +214,11 @@ def run_training(request: dict, cancelled, emit) -> None:
             }
         )
     check_cancel()
-    if digest(root / "dataset.json") != dataset_sha:
+    if (
+        digest(root / "dataset.json") != dataset_sha
+        or digest(run / "characters.txt") != dictionary_sha
+        or digest(run / "input.json") != input_sha
+    ):
         raise ValueError("Dataset metadata changed during training.")
     missing, unexpected = model.set_state_dict(paddle.load(str(run / "weights.pdparams")))
     if missing or unexpected:
@@ -206,6 +242,11 @@ def run_training(request: dict, cancelled, emit) -> None:
             "normalization": "none",
             "settings": {"datasetDirectory": str(root)},
             "datasetSha256": dataset_sha,
+            "inputSha256": input_sha,
+            "dictionarySha256": dictionary_sha,
+            "addedCharacters": added_characters,
+            "syntheticImages": len(supplemental),
+            "supplementSha256": request.get("supplementSha256"),
             "modelId": source_model["id"],
             "revision": REVISION,
             "checkpointSha256": digest(run / "weights.pdparams"),
@@ -227,10 +268,23 @@ def run_training(request: dict, cancelled, emit) -> None:
             "schemaVersion": 1,
             "sourceModelId": source_model["id"],
             "datasetSha256": dataset_sha,
+            "inputSha256": input_sha,
+            "dictionarySha256": dictionary_sha,
+            "addedCharacters": added_characters,
+            "syntheticImages": len(supplemental),
+            "supplementSha256": request.get("supplementSha256"),
             "summary": metrics,
             "validation": best["validation"],
             "bestEpoch": best["epoch"],
             "training": {key: request[key] for key in ("epochs", "batchSize", "learningRate")},
+            "supplement": None
+            if supplement is None
+            else {
+                "targets": supplement["options"]["targets"],
+                "tolerance": supplement["options"]["tolerance"],
+                "syntheticImages": len(supplemental),
+                "finalGroups": supplement["plan"]["final"]["groups"],
+            },
             "optimizerSteps": optimizer_steps,
             "history": history,
             "revision": REVISION,

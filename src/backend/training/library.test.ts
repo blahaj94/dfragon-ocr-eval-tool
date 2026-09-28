@@ -116,13 +116,13 @@ test('hash mismatch never produces a ready snapshot', async () => {
 
 test('invalid training settings fail before a process is launched', () => {
   const options = {
-    pythonExecutable: 'C:\\python.exe',
-    upstreamDirectory: 'C:\\PaddleOCR',
+    pythonExecutable: join(tmpdir(), 'python.exe'),
+    upstreamDirectory: join(tmpdir(), 'PaddleOCR'),
     epochs: 1,
     batchSize: 2,
     learningRate: 0.00001
   }
-  expect(parseTrainingOptions(options)).toEqual(options)
+  expect(parseTrainingOptions(options)).toEqual({ ...options, additionalCharacters: '' })
   for (const patch of [
     { epochs: 0 },
     { batchSize: 129 },

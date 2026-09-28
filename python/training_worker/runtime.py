@@ -8,7 +8,9 @@ REVISION = "b03f46425e8ff4442b268ce449e3eef758146cd4"
 _dll_handles = []
 
 
-def prepare_runtime(upstream: Path, dictionary: Path, weights: Path):
+def prepare_runtime(
+    upstream: Path, dictionary: Path, weights: Path, source_dictionary: Path | None = None
+):
     revision = subprocess.run(
         ["git", "-C", str(upstream), "rev-parse", "HEAD"],
         check=True,
@@ -56,10 +58,27 @@ def prepare_runtime(upstream: Path, dictionary: Path, weights: Path):
         "SARLabelDecode": count + 2,
         "NRTRLabelDecode": count + 3,
     }
+    paddle.seed(42)
+    np.random.seed(42)
     model = build_model(copy.deepcopy(config["Architecture"]))
     state = paddle.load(str(weights))
     target = model.state_dict()
-    if state.keys() != target.keys() or any(
+    original = (source_dictionary or dictionary).read_text(encoding="utf-8").splitlines()
+    extended = dictionary.read_text(encoding="utf-8").splitlines()
+    if original != extended:
+        from .dictionary import expand_state_arrays
+
+        expanded = expand_state_arrays(
+            {name: value.numpy() for name, value in state.items()},
+            {name: value.numpy() for name, value in target.items()},
+            original,
+            extended,
+        )
+        state = {
+            name: paddle.to_tensor(value, place=target[name].place)
+            for name, value in expanded.items()
+        }
+    elif state.keys() != target.keys() or any(
         list(state[name].shape) != list(value.shape) for name, value in target.items()
     ):
         raise ValueError("Model parameter names or shapes do not match the Korean PP-OCRv5 preset.")
