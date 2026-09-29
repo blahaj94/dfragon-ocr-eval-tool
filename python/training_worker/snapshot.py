@@ -7,6 +7,8 @@ from PIL import Image
 
 from eval_worker.dataset import read_object
 
+from .dictionary import extend_characters
+
 SAMPLE_ID = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(?:[1-9]|1[0-2])"
 )
@@ -17,7 +19,7 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def load_snapshot(directory: Path) -> tuple[dict, dict, list[str]]:
+def load_snapshot(directory: Path, additional_characters: str = "") -> tuple[dict, dict, list[str]]:
     root = directory.resolve(strict=True)
     dataset_path = root / "dataset.json"
     ready = read_object(root / "ready.json")
@@ -59,7 +61,7 @@ def load_snapshot(directory: Path) -> tuple[dict, dict, list[str]]:
         or len(set(dictionary)) != len(dictionary)
     ):
         raise ValueError("Invalid model character dictionary.")
-    characters = set(dictionary) | {" "}
+    characters = set(extend_characters(dictionary, additional_characters)) | {" "}
     text_splits = {}
     pixel_splits = {}
     capture_splits: dict[str, set[str]] = {}
@@ -90,8 +92,10 @@ def load_snapshot(directory: Path) -> tuple[dict, dict, list[str]]:
             or len(text) > 25
             or any(char not in characters for char in text)
         ):
+            missing = sorted(set(text) - characters) if isinstance(text, str) else []
             raise ValueError(
-                f"Sample {sample_id}: label is too long or contains characters missing from the model dictionary."
+                f"Sample {sample_id}: label is too long or contains characters missing from the model dictionary: "
+                + " ".join(f"{char!r} (U+{ord(char):04X})" for char in missing)
             )
         split = row["split"]
         normalized = unicodedata.normalize("NFC", text)

@@ -2,12 +2,17 @@ import { EventEmitter } from 'node:events'
 import { createHash } from 'node:crypto'
 import { cp, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { LibraryClient, parseModel } from './library'
 import { TrainingService } from './service'
 import { ComparisonService } from '../comparison/service'
+import {
+  CHARACTER_GROUPS,
+  characterDistribution,
+  type SupplementOptions
+} from '../../shared/supplement'
 
 const { spawn } = vi.hoisted(() => ({ spawn: vi.fn() }))
 vi.mock('node:child_process', () => ({ spawn }))
@@ -28,7 +33,7 @@ const options = () => ({
 })
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'ocr-training-service-'))
+  root = await realpath(await mkdtemp(join(tmpdir(), 'ocr-training-service-')))
   await mkdir(join(root, 'images'))
   await mkdir(join(root, 'model'))
   const files = [
@@ -308,4 +313,189 @@ test('publication verifies bytes and reuses the same model ID after an ambiguous
     client.publish(root, run, model, '학습 결과', new AbortController().signal)
   ).rejects.toThrow('다르거나')
   expect(sent).toHaveLength(2)
+})
+
+const supplementOptions = (): SupplementOptions => ({
+  additionalCharacters: 'ABCD',
+  pythonExecutable: join(root, 'synth-python.exe'),
+  targets: Object.fromEntries(
+    CHARACTER_GROUPS.map((group) => [group, group === 'latin' ? 75 : null])
+  ) as SupplementOptions['targets'],
+  characters: Object.fromEntries(
+    CHARACTER_GROUPS.map((group) => [group, group === 'latin' ? 'ABCD' : ''])
+  ) as SupplementOptions['characters'],
+  tolerance: 0,
+  maxImages: 100,
+  seed: 42,
+  profile: 'nanum-neo',
+  fonts: { gulim: '', batang: '', nanum: join(root, 'fixture.otf'), uttum: '' },
+  width: 160,
+  height: 32,
+  padding: 0,
+  scale: 1,
+  color: [75, 209, 255],
+  backgroundMode: 'solid',
+  backgroundColor: [20, 30, 40],
+  backgroundDirectory: ''
+})
+
+async function finishSupplement(call: number) {
+  await vi.waitFor(() => expect(spawn.mock.calls.length).toBeGreaterThan(call))
+  const args: string[] = spawn.mock.calls[call][1]
+  const request = JSON.parse(await readFile(args[args.indexOf('--request') + 1], 'utf8'))
+  const output = request.outputDirectory as string
+  await mkdir(join(output, 'images'))
+  const image = join(output, 'images/000000.png')
+  await writeFile(image, 'fixture composite')
+  const manifest = {
+    schemaVersion: 1,
+    mode: request.mode,
+    options: request.options,
+    plan: {
+      real: characterDistribution(['가']),
+      synthetic: characterDistribution(['ABC']),
+      final: characterDistribution(['가', 'ABC']),
+      differences: Object.fromEntries(
+        CHARACTER_GROUPS.map((group) => [group, group === 'latin' ? 0 : null])
+      ),
+      requestedCharacters: 3,
+      warnings: []
+    },
+    samples: [
+      {
+        text: 'ABC',
+        image: relative(root, image).replaceAll('\\', '/'),
+        sha256: checksum('fixture composite')
+      }
+    ]
+  }
+  const bytes = JSON.stringify(manifest)
+  await writeFile(join(output, 'supplement.json'), bytes)
+  const process = spawn.mock.results[call].value as typeof child
+  process.stdout.write('{"type":"finished"}\n')
+  process.emit('close', 0)
+  return { output, hash: checksum(bytes), plan: manifest.plan }
+}
+
+test('each run generates its selected preview again without changing real data or accumulating synthetic rows', async () => {
+  spawn.mockImplementation(() =>
+    Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+  )
+  const original = await readFile(join(root, 'dataset.json'))
+  const previewing = service.previewSupplement(supplementOptions())
+  await finishSupplement(0)
+  const preview = await previewing
+  expect(service.getSnapshot()).toMatchObject({ status: 'ready', supplement: { id: preview.id } })
+  await expect(
+    service.start({ ...options(), supplementId: preview.id, additionalCharacters: 'A' })
+  ).rejects.toThrow('다시')
+  const paths: string[] = []
+  for (let run = 0; run < 2; run++) {
+    const starting = service.start({
+      ...options(),
+      supplementId: preview.id,
+      additionalCharacters: 'ABCD'
+    })
+    const generated = await finishSupplement(1 + run * 2)
+    await starting
+    const args: string[] = spawn.mock.calls[2 + run * 2][1]
+    const request = JSON.parse(await readFile(args[args.indexOf('--request') + 1], 'utf8'))
+    expect(request).toMatchObject({
+      supplementSha256: generated.hash,
+      additionalCharacters: 'ABCD'
+    })
+    paths.push(request.runDirectory)
+    await service.cancel()
+    const training = spawn.mock.results[2 + run * 2].value as typeof child
+    training.stdout.write('{"type":"cancelled"}\n')
+    training.emit('close', 0)
+    await vi.waitFor(() => expect(service.isActive()).toBe(false))
+  }
+  expect(paths[0]).not.toBe(paths[1])
+  expect(await readFile(join(root, 'dataset.json'))).toEqual(original)
+})
+
+test('cancelled synthesis never starts the GPU worker', async () => {
+  const previewing = service.previewSupplement(supplementOptions())
+  await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+  await service.cancel()
+  child.stdout.write('{"type":"cancelled"}\n')
+  child.emit('close', 0)
+  await expect(previewing).rejects.toThrow('취소')
+  expect(service.getSnapshot().status).toBe('cancelled')
+  expect(service.isActive()).toBe(false)
+  expect(spawn).toHaveBeenCalledOnce()
+})
+
+test('failed result opening preserves the visible report and the matching publication target', async () => {
+  const first = join(root, 'runs/first')
+  const broken = join(root, 'runs/broken')
+  await completedRun(first)
+  await completedRun(broken)
+  await mkdir(join(broken, 'synthetic'))
+  await writeFile(join(broken, 'synthetic/supplement.json'), '{}')
+  await service.open(first)
+  const before = service.getSnapshot()
+  await expect(service.open(broken)).rejects.toThrow('합성 결과')
+  expect(service.getSnapshot()).toEqual(before)
+  const publishing = vi.spyOn(library, 'publish').mockResolvedValue(model)
+  await service.publish('검증한 결과')
+  expect(publishing.mock.calls[0][1]).toBe(first)
+  const report = await completedRun(broken)
+  await rm(join(broken, 'synthetic'), { recursive: true })
+  await writeFile(
+    join(broken, 'report.json'),
+    JSON.stringify({
+      ...report,
+      reproducibility: { ...report.reproducibility, supplementSha256: 'a'.repeat(64) }
+    })
+  )
+  await expect(service.open(broken)).rejects.toThrow()
+  expect(service.getSnapshot().samples).toEqual(before.samples)
+})
+
+test('expanded publication sends the appended dictionary and refuses unbound or reordered classes', async () => {
+  const run = join(root, 'runs/expanded')
+  const report = await completedRun(run)
+  const dictionary = '가\n나\n다\n★\n龍\nあ\nア\n'
+  await writeFile(join(run, 'characters.txt'), dictionary)
+  const evaluation = JSON.parse(await readFile(join(run, 'evaluation.json'), 'utf8'))
+  const request = vi.fn(async (_url: unknown, init: RequestInit | undefined) => {
+    const body = init!.body as FormData
+    const metadata = JSON.parse(String(body.get('metadata')))
+    expect(metadata).toMatchObject({ kind: 'expanded', parentId: model.id })
+    const files = await Promise.all(
+      (body.getAll('files') as File[]).map(async (file) => ({
+        name: file.name,
+        bytes: file.size,
+        sha256: checksum(Buffer.from(await file.arrayBuffer()))
+      }))
+    )
+    expect(files.find((file) => file.name === 'characters.txt')?.sha256).toBe(checksum(dictionary))
+    return Response.json({ model: { ...metadata, registeredAt: model.registeredAt, files } })
+  })
+  const client = new LibraryClient(request)
+  await expect(
+    client.publish(root, run, model, '확장 모델', new AbortController().signal)
+  ).rejects.toThrow('다르거나')
+  expect(request).not.toHaveBeenCalled()
+  await writeFile(
+    join(run, 'report.json'),
+    JSON.stringify({
+      ...report,
+      reproducibility: { ...report.reproducibility, dictionarySha256: checksum(dictionary) }
+    })
+  )
+  await writeFile(
+    join(run, 'evaluation.json'),
+    JSON.stringify({ ...evaluation, dictionarySha256: checksum(dictionary) })
+  )
+  await expect(
+    client.publish(root, run, model, '확장 모델', new AbortController().signal)
+  ).resolves.toMatchObject({ kind: 'expanded' })
+  await writeFile(join(run, 'characters.txt'), '나\n가\n다\n★\n')
+  await expect(
+    client.publish(root, run, model, '확장 모델', new AbortController().signal)
+  ).rejects.toThrow('순서')
+  expect(request).toHaveBeenCalledOnce()
 })

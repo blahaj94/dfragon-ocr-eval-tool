@@ -5,13 +5,32 @@ import { join, relative, isAbsolute, basename, dirname } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { LibraryModel, TrainingOptions, TrainingSnapshot } from '../../shared/training'
 import { isRecord, isSample, isReport, readPath } from '../evaluation/validation'
+import type { SupplementPreview } from '../../shared/supplement'
+import { readSupplement, supplementInfo } from './supplement'
+import { parseSupplementOptions } from './supplement-validation'
+import { runSupplementWorker } from './supplement-worker'
 import { LibraryClient, parseDataset, parseModel } from './library'
 
 export function parseTrainingOptions(value: unknown): TrainingOptions {
   if (
     !isRecord(value) ||
-    Object.keys(value).sort().join(',') !==
-      'batchSize,epochs,learningRate,pythonExecutable,upstreamDirectory' ||
+    Object.keys(value).some(
+      (key) =>
+        ![
+          'batchSize',
+          'epochs',
+          'learningRate',
+          'pythonExecutable',
+          'upstreamDirectory',
+          'additionalCharacters',
+          'supplementId'
+        ].includes(key)
+    ) ||
+    (value.additionalCharacters !== undefined &&
+      (typeof value.additionalCharacters !== 'string' ||
+        value.additionalCharacters.length > 20_000)) ||
+    (value.supplementId !== undefined &&
+      (typeof value.supplementId !== 'string' || !/^[0-9a-f-]{36}$/.test(value.supplementId))) ||
     typeof value.epochs !== 'number' ||
     !Number.isInteger(value.epochs) ||
     value.epochs < 1 ||
@@ -28,6 +47,8 @@ export function parseTrainingOptions(value: unknown): TrainingOptions {
     throw new Error('학습 횟수·배치 크기·학습률을 확인해 주세요.')
   }
   return {
+    additionalCharacters: (value.additionalCharacters as string | undefined) ?? '',
+    ...(value.supplementId === undefined ? {} : { supplementId: value.supplementId as string }),
     pythonExecutable: readPath(value.pythonExecutable),
     upstreamDirectory: readPath(value.upstreamDirectory),
     epochs: value.epochs,
@@ -54,6 +75,7 @@ export class TrainingService {
   private child: ChildProcess | null = null
   private cancelFile: string | null = null
   private runDirectory: string | null = null
+  private preparedSupplement: SupplementPreview | null = null
   private preparing = false
   private cancelRequested = false
   private readonly images = new Map<string, string>()
@@ -167,12 +189,42 @@ export class TrainingService {
           images.set(expectedPath, row.sha256)
         }
       }
+      const provenance =
+        isRecord(report) && isRecord(report.reproducibility) ? report.reproducibility : null
+      let savedSupplement: SupplementPreview | null = null
+      if (run !== null) {
+        try {
+          const saved = await readSupplement(root, join(run, 'synthetic'), true)
+          if (saved.sha256 !== provenance?.supplementSha256) {
+            throw new Error('학습 때 사용한 합성 구성과 저장된 결과가 다릅니다.')
+          }
+          savedSupplement = {
+            id: '',
+            options: saved.options,
+            plan: saved.plan,
+            examples: saved.examples
+          }
+        } catch (error) {
+          if (
+            (error as NodeJS.ErrnoException).code !== 'ENOENT' ||
+            provenance?.supplementSha256 != null
+          ) {
+            throw error
+          }
+        }
+      }
+      // Keep the visible report and publication target together if any read fails.
       this.images.clear()
       for (const [path, hash] of images) {
         this.images.set(path, hash)
       }
       this.runDirectory = run
+      this.preparedSupplement = null
       this.update({
+        supplement: savedSupplement,
+        addedCharacters: Array.isArray(provenance?.addedCharacters)
+          ? provenance.addedCharacters.filter((char): char is string => typeof char === 'string')
+          : [],
         status: run === null ? 'ready' : 'completed',
         directory: root,
         counts,
@@ -202,9 +254,12 @@ export class TrainingService {
     const root = readPath(directory)
     this.controller = new AbortController()
     this.runDirectory = null
+    this.preparedSupplement = null
     this.images.clear()
     this.update({
       status: 'downloading',
+      supplement: null,
+      addedCharacters: [],
       message: '자료실 목록을 가져옵니다.',
       error: null,
       directory: null,
@@ -239,6 +294,81 @@ export class TrainingService {
     }
   }
 
+  async supplementInfo() {
+    this.requireFree()
+    if (!this.snapshot.directory) {
+      throw new Error('실제 데이터를 먼저 가져오세요.')
+    }
+    return supplementInfo(this.snapshot.directory)
+  }
+
+  async previewSupplement(value: unknown): Promise<SupplementPreview> {
+    this.requireFree()
+    const root = this.snapshot.directory
+    if (!root) {
+      throw new Error('실제 데이터를 먼저 가져오세요.')
+    }
+    const options = parseSupplementOptions(value)
+    this.preparing = true
+    this.cancelRequested = false
+    this.preparedSupplement = null
+    this.update({
+      status: 'preparing',
+      error: null,
+      supplement: null,
+      metrics: null,
+      samples: [],
+      message: '실제 분포·사전·폰트를 확인하고 합성 예시를 준비합니다.'
+    })
+    try {
+      const id = randomUUID()
+      const output = join(root, 'previews', id)
+      await mkdir(output, { recursive: true })
+      const request = join(output, 'request.json')
+      this.cancelFile = join(output, 'cancel')
+      await writeFile(
+        request,
+        JSON.stringify({ directory: root, outputDirectory: output, mode: 'preview', options }),
+        { flag: 'wx' }
+      )
+      if (this.cancelRequested) {
+        throw new Error('합성 준비를 취소했습니다.')
+      }
+      await runSupplementWorker({
+        python: options.pythonExecutable,
+        worker: join(dirname(this.worker), 'supplement.py'),
+        request,
+        cancelFile: this.cancelFile,
+        onChild: (child) => {
+          this.child = child
+        },
+        onMessage: (message) => this.update({ message })
+      })
+      if (this.cancelRequested) {
+        throw new Error('합성 준비를 취소했습니다.')
+      }
+      const result = await readSupplement(root, output, true)
+      const preview = { id, options, plan: result.plan, examples: result.examples }
+      this.preparedSupplement = preview
+      this.update({
+        status: 'ready',
+        supplement: preview,
+        message: `합성 ${result.plan.synthetic.images}장 예상 · 미리보기 완료`
+      })
+      return structuredClone(preview)
+    } catch (error) {
+      this.update({
+        status: this.cancelRequested ? 'cancelled' : 'failed',
+        error: error instanceof Error ? error.message : String(error)
+      })
+      throw error
+    } finally {
+      this.preparing = false
+      this.cancelFile = null
+      this.update({})
+    }
+  }
+
   async start(value: unknown): Promise<void> {
     this.requireFree()
     if (this.gpuBusy()) {
@@ -249,11 +379,22 @@ export class TrainingService {
     if (root === null || this.snapshot.model === null) {
       throw new Error('모델과 데이터를 먼저 가져와 주세요.')
     }
+    const supplement = options.supplementId === undefined ? null : this.preparedSupplement
+    if (
+      options.supplementId !== undefined &&
+      (!supplement ||
+        supplement.id !== options.supplementId ||
+        supplement.options.additionalCharacters !== options.additionalCharacters)
+    ) {
+      throw new Error('현재 설정으로 합성 미리보기를 다시 준비해 주세요.')
+    }
     this.preparing = true
     this.cancelRequested = false
     this.images.clear()
     this.update({
-      status: 'training',
+      status: supplement ? 'preparing' : 'training',
+      supplement,
+      addedCharacters: [],
       message: '학습 환경을 확인합니다.',
       error: null,
       epoch: 0,
@@ -268,6 +409,40 @@ export class TrainingService {
       this.runDirectory = run
       const request = join(run, 'request.json')
       this.cancelFile = join(run, 'cancel')
+      let supplementSha256: string | undefined
+      if (supplement !== null && !this.cancelRequested) {
+        const output = join(run, 'synthetic')
+        await mkdir(output)
+        const synthesisRequest = join(output, 'request.json')
+        await writeFile(
+          synthesisRequest,
+          JSON.stringify({
+            directory: root,
+            outputDirectory: output,
+            mode: 'generate',
+            options: supplement.options
+          }),
+          { flag: 'wx' }
+        )
+        if (this.cancelRequested) {
+          throw new Error('합성 준비를 취소했습니다.')
+        }
+        await runSupplementWorker({
+          python: supplement.options.pythonExecutable,
+          worker: join(dirname(this.worker), 'supplement.py'),
+          request: synthesisRequest,
+          cancelFile: this.cancelFile,
+          onChild: (child) => {
+            this.child = child
+          },
+          onMessage: (message) => this.update({ message })
+        })
+        const generated = await readSupplement(root, output, false)
+        if (JSON.stringify(generated.plan) !== JSON.stringify(supplement.plan)) {
+          throw new Error('미리보기 이후 입력이 바뀌었습니다. 다시 미리보기해 주세요.')
+        }
+        supplementSha256 = generated.sha256
+      }
       await writeFile(
         request,
         JSON.stringify({
@@ -276,7 +451,9 @@ export class TrainingService {
           upstreamDirectory: options.upstreamDirectory,
           epochs: options.epochs,
           batchSize: options.batchSize,
-          learningRate: options.learningRate
+          learningRate: options.learningRate,
+          additionalCharacters: options.additionalCharacters,
+          ...(supplementSha256 === undefined ? {} : { supplementSha256 })
         }),
         { flag: 'wx' }
       )
@@ -285,6 +462,7 @@ export class TrainingService {
         this.update({ status: 'cancelled', message: '학습 시작을 취소했습니다.' })
         return
       }
+      this.update({ status: 'training', message: 'GPU 모델과 실제 학습 입력을 확인합니다.' })
       const child = spawn(
         options.pythonExecutable,
         ['-B', '-u', this.worker, '--request', request, '--cancel-file', this.cancelFile],
@@ -396,9 +574,16 @@ export class TrainingService {
             ) {
               throw new Error('저장된 평가 보고서와 실행 결과가 다릅니다.')
             }
+            const provenance = isRecord(report) ? report.reproducibility : null
             this.update({
               status: 'completed',
               metrics: report.summary,
+              addedCharacters:
+                isRecord(provenance) && Array.isArray(provenance.addedCharacters)
+                  ? provenance.addedCharacters.filter(
+                      (char): char is string => typeof char === 'string'
+                    )
+                  : [],
               message: `학습·test 평가 완료 · ${join(run, 'report.json')}`
             })
           })
@@ -417,7 +602,7 @@ export class TrainingService {
       })
     } catch (error) {
       this.update({
-        status: 'failed',
+        status: this.cancelRequested ? 'cancelled' : 'failed',
         error: error instanceof Error ? error.message : String(error)
       })
       throw error
@@ -432,7 +617,10 @@ export class TrainingService {
     this.controller?.abort()
     if (this.cancelFile !== null) {
       await writeFile(this.cancelFile, 'cancel')
-      this.update({ status: 'cancelling', message: '현재 GPU 작업이 끝나면 중단합니다.' })
+      this.update({
+        status: 'cancelling',
+        message: '현재 이미지 처리·GPU 작업이 끝나면 중단합니다.'
+      })
     }
   }
 

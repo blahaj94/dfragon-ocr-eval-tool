@@ -1,10 +1,11 @@
+import type { SupplementOptions, SupplementPreview, SupplementInfo } from './supplement'
 import type { EvaluationSample, Metrics, Result } from './contracts'
 
 export interface LibraryModel {
   id: string
   name: string
   preset: 'korean-ppocrv5'
-  kind: 'pretrained' | 'finetuned'
+  kind: 'pretrained' | 'finetuned' | 'expanded'
   parentId: string | null
   registeredAt: string
   files: {
@@ -26,6 +27,8 @@ export interface LibrarySample {
 }
 
 export interface TrainingOptions {
+  additionalCharacters?: string
+  supplementId?: string
   pythonExecutable: string
   upstreamDirectory: string
   epochs: number
@@ -37,6 +40,7 @@ export interface TrainingSnapshot {
   status:
     | 'idle'
     | 'downloading'
+    | 'preparing'
     | 'ready'
     | 'training'
     | 'evaluating'
@@ -55,6 +59,8 @@ export interface TrainingSnapshot {
   metrics: Metrics | null
   samples: EvaluationSample[]
   publishedModelId: string | null
+  supplement?: SupplementPreview | null
+  addedCharacters?: string[]
 }
 
 export interface TrainingApi {
@@ -64,6 +70,8 @@ export interface TrainingApi {
   defaults(): Promise<Result<Partial<TrainingOptions>>>
   download(modelId: string, directory: string): Promise<Result<null>>
   open(directory: string): Promise<Result<null>>
+  supplementInfo(): Promise<Result<SupplementInfo>>
+  previewSupplement(options: SupplementOptions): Promise<Result<SupplementPreview>>
   start(options: TrainingOptions): Promise<Result<null>>
   cancel(): Promise<Result<null>>
   publish(name: string): Promise<Result<LibraryModel>>
@@ -80,6 +88,8 @@ export const TRAINING_IPC = {
   download: 'training:download',
   open: 'training:open',
   start: 'training:start',
+  supplementInfo: 'training:supplement-info',
+  previewSupplement: 'training:preview-supplement',
   cancel: 'training:cancel',
   publish: 'training:publish',
   readImage: 'training:read-image',

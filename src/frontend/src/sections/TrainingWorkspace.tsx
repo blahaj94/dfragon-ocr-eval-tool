@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { LibraryModel, TrainingOptions, TrainingSnapshot } from '../../../shared/training'
 import type { Result } from '../../../shared/contracts'
 import { PathField } from '../components/PathField'
+import { SupplementSettings } from './SupplementSettings'
 import { EvaluationResults } from '../components/EvaluationResults'
 
 const initial: TrainingSnapshot = {
@@ -24,6 +25,11 @@ export function TrainingWorkspace(): React.JSX.Element {
   const [modelId, setModelId] = useState('')
   const [directory, setDirectory] = useState('')
   const [name, setName] = useState('')
+  const [useSupplement, setUseSupplement] = useState(false)
+  const [selectedSupplement, setSelectedSupplement] = useState<{
+    directory: string
+    id: string
+  } | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [options, setOptions] = useState<TrainingOptions>({
@@ -33,9 +39,14 @@ export function TrainingWorkspace(): React.JSX.Element {
     batchSize: 8,
     learningRate: 0.00001
   })
-  const active = ['downloading', 'training', 'evaluating', 'cancelling', 'publishing'].includes(
-    snapshot.status
-  )
+  const active = [
+    'downloading',
+    'preparing',
+    'training',
+    'evaluating',
+    'cancelling',
+    'publishing'
+  ].includes(snapshot.status)
   const busy = pending || active
 
   useEffect(() => {
@@ -318,9 +329,20 @@ export function TrainingWorkspace(): React.JSX.Element {
               snapshot.directory === null ||
               !snapshot.model ||
               !options.pythonExecutable ||
-              !options.upstreamDirectory
+              !options.upstreamDirectory ||
+              (useSupplement &&
+                (!selectedSupplement || selectedSupplement.directory !== snapshot.directory))
             }
-            onClick={() => void command(() => window.training.start(options))}
+            onClick={() =>
+              void command(() =>
+                window.training.start({
+                  ...options,
+                  ...(useSupplement && selectedSupplement
+                    ? { supplementId: selectedSupplement.id }
+                    : {})
+                })
+              )
+            }
           >
             학습 후 test 평가
           </button>
@@ -332,6 +354,29 @@ export function TrainingWorkspace(): React.JSX.Element {
           )}
         </section>
         <div className="results-column">
+          {snapshot.directory && (
+            <SupplementSettings
+              key={snapshot.directory}
+              directory={snapshot.directory}
+              busy={busy}
+              enabled={useSupplement}
+              setEnabled={setUseSupplement}
+              additionalCharacters={options.additionalCharacters ?? ''}
+              setAdditionalCharacters={(value) => {
+                setOptions((current) => ({ ...current, additionalCharacters: value }))
+                setSelectedSupplement(null)
+              }}
+              onSelect={(id) =>
+                setSelectedSupplement(
+                  id && snapshot.directory ? { id, directory: snapshot.directory } : null
+                )
+              }
+              saved={snapshot.supplement}
+            />
+          )}
+          {!!snapshot.addedCharacters?.length && (
+            <p>저장된 모델의 추가 문자: {snapshot.addedCharacters.join('')}</p>
+          )}
           <section className="panel training-progress" aria-label="학습 진행 상태">
             <h3>{snapshot.model?.name ?? '학습 준비'}</h3>
             <p role="status">

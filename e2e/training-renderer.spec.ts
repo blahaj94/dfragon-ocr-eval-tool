@@ -61,6 +61,32 @@ test('library selection leads to local training, test review and explicit public
         })
         return { ok: true, value: null }
       },
+      supplementInfo: async () => ({
+        ok: true,
+        value: {
+          real: {
+            images: 30,
+            nicknames: 25,
+            characters: 90,
+            groups: {
+              hangul: 90,
+              special: 0,
+              hiragana: 0,
+              katakana: 0,
+              hanja: 0,
+              latin: 0,
+              digit: 0,
+              other: 0
+            },
+            frequencies: []
+          },
+          missing: [],
+          dictionarySize: 11945,
+          width: 8192,
+          height: 4096
+        }
+      }),
+      previewSupplement: async () => ({ ok: false, error: 'fixture: configure synthesis' }),
       open: async () => ({ ok: true, value: null }),
       start: async () => {
         update({ status: 'training', epoch: 1, epochs: 10, message: 'train으로 학습 중입니다.' })
@@ -110,6 +136,79 @@ test('library selection leads to local training, test review and explicit public
   await page.getByRole('button', { name: '실험 저장 폴더 선택' }).click()
   await page.getByRole('button', { name: '모델·데이터 가져오기' }).click()
   await expect(page.getByText('train 30 · val 8 · test 1 · 사용 안 함 4')).toBeVisible()
+  await page.getByLabel('부족한 문자군을 합성으로 보충').check()
+  await expect(page.getByLabel('크롭 너비 (px)')).toHaveValue('2048')
+  await expect(page.getByLabel('크롭 높이 (px)')).toHaveValue('2048')
+  await page.getByLabel('크롭 너비 (px)').fill('160')
+  await page.getByLabel('크롭 높이 (px)').fill('32')
+  await expect(page.getByRole('button', { name: '학습 후 test 평가' })).toBeDisabled()
+  await expect(page.getByLabel('특수문자 목표 (%)')).toHaveValue('')
+  await expect(page.getByLabel('허용 오차 (%p)')).toHaveValue('')
+  await page.getByLabel('특수문자 목표 (%)').fill('10')
+  await page.getByLabel('특수문자 합성 문자').fill('★☆')
+  await page.getByLabel('허용 오차 (%p)').fill('1')
+  await page.getByText('모델 사전 확장', { exact: true }).click()
+  await page.getByLabel('모델에 추가할 문자').fill('★☆')
+  await page.getByRole('button', { name: '합성용 Python 선택' }).click()
+  await page.evaluate(() => {
+    window.training.previewSupplement = async (options) => {
+      const info = await window.training.supplementInfo()
+      if (!info.ok) {
+        return info
+      }
+      const real = info.value.real
+      return {
+        ok: true,
+        value: {
+          id: '00000000-0000-4000-8000-000000000002',
+          options,
+          plan: {
+            real,
+            synthetic: {
+              ...real,
+              images: 1,
+              nicknames: 1,
+              characters: 2,
+              groups: { ...real.groups, hangul: 0, special: 2 }
+            },
+            final: {
+              ...real,
+              images: 31,
+              nicknames: 26,
+              characters: 92,
+              groups: { ...real.groups, special: 2 }
+            },
+            differences: {
+              hangul: null,
+              special: -7.83,
+              hiragana: null,
+              katakana: null,
+              hanja: null,
+              latin: null,
+              digit: null,
+              other: null
+            },
+            requestedCharacters: 9,
+            warnings: ['목표 비율 미달 · 이 구성으로 실행할 수 있습니다.']
+          },
+          examples: [
+            {
+              text: '★☆',
+              image:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/L9sAAAAASUVORK5CYII='
+            }
+          ]
+        }
+      }
+    }
+  })
+  await page.getByRole('button', { name: '보충량 계산·합성 미리보기' }).click()
+  await expect(page.getByText('목표 비율 미달 · 이 구성으로 실행할 수 있습니다.')).toBeVisible()
+  await expect(page.getByRole('button', { name: '학습 후 test 평가' })).toBeEnabled()
+  await page.screenshot({ path: info.outputPath('synthetic-preview.png'), fullPage: true })
+  await page.getByLabel('특수문자 목표 (%)').fill('12')
+  await expect(page.getByRole('button', { name: '학습 후 test 평가' })).toBeDisabled()
+  await page.getByRole('button', { name: '보충량 계산·합성 미리보기' }).click()
   await page.getByRole('button', { name: '학습 후 test 평가' }).click()
   await expect(page.getByRole('button', { name: '모델·데이터 가져오기' })).toBeDisabled()
   await expect(page.getByRole('region', { name: '학습 모델의 test 성적' })).not.toContainText('%')

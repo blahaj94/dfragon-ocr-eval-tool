@@ -19,7 +19,7 @@ export function parseModel(value: unknown): LibraryModel {
     !value.name.trim() ||
     value.name.length > 100 ||
     value.preset !== 'korean-ppocrv5' ||
-    !['pretrained', 'finetuned'].includes(String(value.kind)) ||
+    !['pretrained', 'finetuned', 'expanded'].includes(String(value.kind)) ||
     !(
       value.parentId === null ||
       (typeof value.parentId === 'string' && uuid.test(value.parentId))
@@ -272,6 +272,34 @@ export class LibraryClient {
     if (!name.trim() || name.length > 100) {
       throw new Error('모델 이름을 1~100자로 입력해 주세요.')
     }
+    const parentDictionary = await readFile(join(directory, 'model/characters.txt'))
+    let dictionary: Buffer
+    try {
+      dictionary = await readFile(join(runDirectory, 'characters.txt'))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error
+      }
+      dictionary = parentDictionary
+    }
+    const kind = dictionary.equals(parentDictionary) ? 'finetuned' : 'expanded'
+    if (kind === 'expanded') {
+      const parent = parentDictionary
+        .toString('utf8')
+        .replace(/\r?\n$/, '')
+        .split(/\r?\n/)
+      const characters = dictionary
+        .toString('utf8')
+        .replace(/\r?\n$/, '')
+        .split(/\r?\n/)
+      if (
+        characters.length <= parent.length ||
+        new Set(characters).size !== characters.length ||
+        parent.some((char, index) => characters[index] !== char)
+      ) {
+        throw new Error('확장 사전은 기존 문자 순서를 유지해야 합니다.')
+      }
+    }
     const metadataFile = join(runDirectory, 'publish.json')
     let metadata: { id: string; name: string; preset: string; kind: string; parentId: string }
     try {
@@ -284,7 +312,7 @@ export class LibraryClient {
         id: randomUUID(),
         name,
         preset: model.preset,
-        kind: 'finetuned',
+        kind,
         parentId: model.id
       }
       await writeFile(metadataFile, JSON.stringify(metadata), { flag: 'wx' })
@@ -294,7 +322,7 @@ export class LibraryClient {
       !uuid.test(metadata.id) ||
       metadata.parentId !== model.id ||
       metadata.preset !== model.preset ||
-      metadata.kind !== 'finetuned' ||
+      metadata.kind !== kind ||
       typeof metadata.name !== 'string' ||
       !metadata.name.trim() ||
       metadata.name.length > 100
@@ -309,7 +337,6 @@ export class LibraryClient {
     const evaluationBytes = await readFile(join(runDirectory, 'evaluation.json'))
     const evaluation: unknown = JSON.parse(evaluationBytes.toString('utf8'))
     const checkpoint = await readFile(join(runDirectory, 'weights.pdparams'))
-    const dictionary = await readFile(join(directory, 'model/characters.txt'))
     const checksum = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex')
     if (
       !isReport(report) ||
@@ -323,7 +350,12 @@ export class LibraryClient {
       evaluation.datasetSha256 !== checksum(await readFile(join(directory, 'dataset.json'))) ||
       evaluation.datasetSha256 !== provenance.datasetSha256 ||
       JSON.stringify(evaluation.summary) !== JSON.stringify(report.summary) ||
-      checksum(dictionary) !== model.files.find((file) => file.name === 'characters.txt')?.sha256 ||
+      checksum(parentDictionary) !==
+        model.files.find((file) => file.name === 'characters.txt')?.sha256 ||
+      (evaluation.dictionarySha256 === undefined
+        ? kind === 'expanded'
+        : evaluation.dictionarySha256 !== checksum(dictionary) ||
+          provenance.dictionarySha256 !== checksum(dictionary)) ||
       evaluationBytes.length > 1024 * 1024 ||
       checkpoint.length + dictionary.length + evaluationBytes.length > 128 * 1024 * 1024
     ) {
@@ -359,7 +391,7 @@ export class LibraryClient {
       registered.id !== metadata.id ||
       registered.parentId !== metadata.parentId ||
       registered.name !== metadata.name ||
-      registered.kind !== 'finetuned' ||
+      registered.kind !== kind ||
       registered.files.length !== files.length ||
       files.some(([name, bytes]) => {
         const file = registered.files.find((item) => item.name === name)

@@ -36,6 +36,8 @@ export function registerTrainingIpc(
         return null
       }
     ],
+    [TRAINING_IPC.supplementInfo, 0, () => service.supplementInfo()],
+    [TRAINING_IPC.previewSupplement, 1, (options) => service.previewSupplement(options)],
     [TRAINING_IPC.models, 0, () => service.models()],
     [
       TRAINING_IPC.defaults,
